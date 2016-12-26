@@ -72,16 +72,13 @@ public static void main(String[] args) throws IOException, InterruptedException 
 //    }
 
 
-    // Add something so we don't optimize away all work.
-    // Note that this is not threadsafe, which means that this code is running faster than it "should".
-    TotalHitCountCollector collector = new TotalHitCountCollector();
-
 
     String queryFilename = "/home/danluu/dev/wikipedia.100.200.old/terms.d20.txt";
     List<String> tempQueryLog = getLinesFromFile(queryFilename);
     String[] queryLog = tempQueryLog.toArray(new String[]{});
 
     AtomicInteger numCompleted = new AtomicInteger(0);
+    AtomicInteger numHits = new AtomicInteger(0);
     int numThreads = 8;
     ExecutorService executor = Executors.newFixedThreadPool(numThreads);
 
@@ -90,10 +87,13 @@ public static void main(String[] args) throws IOException, InterruptedException 
             t -> {
                 Runnable task = () -> {
                     try {
+                        // Add something so we don't optimize away all work.
+                        TotalHitCountCollector collector = new TotalHitCountCollector();
                         while (true) {
                             int idx = numCompleted.getAndIncrement();
                             if (idx >= queryLog.length) {
                                 numCompleted.decrementAndGet();
+                                numHits.addAndGet(collector.getTotalHits());
                                 return;
                             }
                             executeQuery(idx, queryLog, isearcher, collector);
@@ -118,7 +118,7 @@ public static void main(String[] args) throws IOException, InterruptedException 
     System.out.println("queryLog.size(): " + queryLog.length);
     System.out.println("queries run: " + numCompleted.get());
     System.out.println("qps: " + qps);
-    System.out.println("total matches: " + collector.getTotalHits());
+    System.out.println("total matches: " + numHits.get());
 
 }
 
