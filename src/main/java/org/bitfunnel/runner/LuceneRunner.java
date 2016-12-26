@@ -12,9 +12,7 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
@@ -77,41 +75,45 @@ public static void main(String[] args) throws IOException, InterruptedException 
     List<String> tempQueryLog = getLinesFromFile(queryFilename);
     String[] queryLog = tempQueryLog.toArray(new String[]{});
 
-    AtomicInteger numCompleted = new AtomicInteger(0);
-    AtomicInteger numHits = new AtomicInteger(0);
+    AtomicInteger numCompleted = new AtomicInteger();
+    AtomicInteger numHits = new AtomicInteger();
     int numThreads = 8;
     ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+    ExecutorCompletionService completionService = new ExecutorCompletionService(executor);
 
     long queryStartTime = System.currentTimeMillis();
     IntStream.range(0, numThreads).forEach(
             t -> {
-                Runnable task = () -> {
+                Callable task = () -> {
                     try {
-                        // Add something so we don't optimize away all work.
+                        // Add some kind of collector so we don't optimize away all work.
                         TotalHitCountCollector collector = new TotalHitCountCollector();
                         while (true) {
                             int idx = numCompleted.getAndIncrement();
                             if (idx >= queryLog.length) {
                                 numCompleted.decrementAndGet();
                                 numHits.addAndGet(collector.getTotalHits());
-                                return;
+                                return null;
                             }
                             executeQuery(idx, queryLog, isearcher, collector);
                         }
                     } catch (IOException e) {
                         e.printStackTrace();
-                        return;
+                        return null;
                     }
                 };
-                executor.execute(task);
+                completionService.submit(task);
             }
     );
+
+    for (int i = 0; i < numThreads; ++i) {
+        completionService.poll();
+    }
+    long queryDoneTime = System.currentTimeMillis();
+
     executor.shutdown();
     executor.awaitTermination(300, TimeUnit.SECONDS);
-//    for (int i = 0; i < queryLog.length; ++i) {
-//        executeQuery(i, queryLog, isearcher, collector);
-//    }
-    long queryDoneTime = System.currentTimeMillis();
+
     long queryDuration = queryDoneTime - queryStartTime;
     Double qps = Double.valueOf(queryLog.length / (Double.valueOf(queryDuration)) * 1000.0);
     System.out.println("queryDuration: " + queryDuration);
