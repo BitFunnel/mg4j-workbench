@@ -21,53 +21,14 @@ public static void main(String[] args) throws IOException, InterruptedException 
     // Open manifest.
     // String manifestFilename = "/home/danluu/dev/wikipedia.100.150/Manifest.Short.txt";
     String manifestFilename = "/home/danluu/dev/wikipedia.100.150/Manifest.txt";
-    String[] chunkfileNames = getLinesFromFile(manifestFilename);
 
     // Lucene setup.
     Directory dir = new RAMDirectory();
-    IndexWriterConfig config = new IndexWriterConfig(new StandardAnalyzer());
-    IndexWriter writer =  new IndexWriter(dir, config);
-
     int numThreads = 8;
     ExecutorService executor = Executors.newFixedThreadPool(numThreads);
     ExecutorCompletionService completionService = new ExecutorCompletionService(executor);
 
-    AtomicInteger fileIdx = new AtomicInteger();
-    System.out.println("Ingesting " + chunkfileNames.length + " documents.");
-    long ingestStartTime = System.currentTimeMillis();
-    IntStream.range(0, numThreads).forEach(
-            t -> {
-                Callable task = () -> {
-                    try {
-                        DocumentProcessor processor = new DocumentProcessor(writer);
-                        while (true) {
-                            int idx = fileIdx.getAndIncrement();
-                            if (idx >= chunkfileNames.length) {
-                                fileIdx.decrementAndGet();
-                                return null;
-                            }
-                            InputStream inputStream = new FileInputStream(chunkfileNames[idx]);
-                            CorpusFile corpus = new CorpusFile(inputStream);
-                            corpus.process(processor);
-                        }
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                        return null;
-                    }
-                };
-                completionService.submit(task);
-            }
-    );
-
-    for (int i = 0; i < numThreads; ++i) {
-        completionService.take();
-    }
-
-    // Commit index.
-    writer.commit();
-    long ingestDoneTime = System.currentTimeMillis();
-
-    System.out.println("numIngested: " + fileIdx.get());
+    ingestDocuments(manifestFilename, dir, numThreads, completionService);
 
     // Now search the index:
     DirectoryReader ireader = null;
@@ -102,6 +63,7 @@ public static void main(String[] args) throws IOException, InterruptedException 
     AtomicInteger numCompleted = new AtomicInteger();
     AtomicInteger numHits = new AtomicInteger();
     System.out.println("Querying.");
+    System.gc();
     long queryStartTime = System.currentTimeMillis();
     IntStream.range(0, numThreads).forEach(
             t -> {
@@ -139,6 +101,50 @@ public static void main(String[] args) throws IOException, InterruptedException 
     System.out.println("total matches: " + numHits.get());
 
 }
+
+    private static void ingestDocuments(String manifestFilename, Directory dir, int numThreads, ExecutorCompletionService completionService) throws IOException, InterruptedException {
+        String[] chunkfileNames = getLinesFromFile(manifestFilename);
+
+        IndexWriterConfig config = new IndexWriterConfig(new StandardAnalyzer());
+        IndexWriter writer =  new IndexWriter(dir, config);
+
+        AtomicInteger fileIdx = new AtomicInteger();
+        System.out.println("Ingesting " + chunkfileNames.length + " documents.");
+        long ingestStartTime = System.currentTimeMillis();
+        IntStream.range(0, numThreads).forEach(
+                t -> {
+                    Callable task = () -> {
+                        try {
+                            DocumentProcessor processor = new DocumentProcessor(writer);
+                            while (true) {
+                                int idx = fileIdx.getAndIncrement();
+                                if (idx >= chunkfileNames.length) {
+                                    fileIdx.decrementAndGet();
+                                    return null;
+                                }
+                                InputStream inputStream = new FileInputStream(chunkfileNames[idx]);
+                                CorpusFile corpus = new CorpusFile(inputStream);
+                                corpus.process(processor);
+                            }
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                            return null;
+                        }
+                    };
+                    completionService.submit(task);
+                }
+        );
+
+        for (int i = 0; i < numThreads; ++i) {
+            completionService.take();
+        }
+
+        // Commit index.
+        writer.commit();
+        long ingestDoneTime = System.currentTimeMillis();
+
+        System.out.println("numIngested: " + fileIdx.get());
+    }
 
     private static void executeQuery(int index, String[] queries, IndexSearcher isearcher, TotalHitCountCollector collector) throws IOException {
         String[] terms= queries[index].split(" ");
