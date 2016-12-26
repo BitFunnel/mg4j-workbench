@@ -21,8 +21,8 @@ import java.util.stream.IntStream;
 class LuceneRunner {
 public static void main(String[] args) throws IOException, InterruptedException {
     // Open manifest.
-    // String manifestFilename = "/home/danluu/dev/wikipedia.100.150/Manifest.Short.txt";
-    String manifestFilename = "/home/danluu/dev/wikipedia.100.150/Manifest.txt";
+    String manifestFilename = "/home/danluu/dev/wikipedia.100.150/Manifest.Short.txt";
+    // String manifestFilename = "/home/danluu/dev/wikipedia.100.150/Manifest.txt";
     List<String> stringList = getLinesFromFile(manifestFilename);
 
     // Lucene setup.
@@ -32,6 +32,7 @@ public static void main(String[] args) throws IOException, InterruptedException 
     writer = new IndexWriter(dir, config);
 
     DocumentProcessor processor = new DocumentProcessor(writer);
+
     long ingestStartTime = System.currentTimeMillis();
     // Ingest chunkfiles into Index.
     for (String chunkfile : stringList) {
@@ -81,15 +82,22 @@ public static void main(String[] args) throws IOException, InterruptedException 
     String[] queryLog = tempQueryLog.toArray(new String[]{});
 
     AtomicInteger numCompleted = new AtomicInteger(0);
-    ExecutorService executor = Executors.newFixedThreadPool(8);
+    int numThreads = 8;
+    ExecutorService executor = Executors.newFixedThreadPool(numThreads);
 
     long queryStartTime = System.currentTimeMillis();
-    IntStream.range(0, queryLog.length).forEach(
-            i -> {
+    IntStream.range(0, numThreads).forEach(
+            t -> {
                 Runnable task = () -> {
                     try {
-                        executeQuery(i, queryLog, isearcher, collector);
-                        numCompleted.incrementAndGet();
+                        while (true) {
+                            int idx = numCompleted.getAndIncrement();
+                            if (idx >= queryLog.length) {
+                                numCompleted.decrementAndGet();
+                                return;
+                            }
+                            executeQuery(idx, queryLog, isearcher, collector);
+                        }
                     } catch (IOException e) {
                         e.printStackTrace();
                         return;
