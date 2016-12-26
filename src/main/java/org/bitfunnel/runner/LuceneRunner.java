@@ -12,9 +12,14 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.IntStream;
 
 class LuceneRunner {
-public static void main(String[] args) throws IOException {
+public static void main(String[] args) throws IOException, InterruptedException {
     // Open manifest.
     // String manifestFilename = "/home/danluu/dev/wikipedia.100.150/Manifest.Short.txt";
     String manifestFilename = "/home/danluu/dev/wikipedia.100.150/Manifest.txt";
@@ -24,12 +29,7 @@ public static void main(String[] args) throws IOException {
     Directory dir = new RAMDirectory();
     IndexWriterConfig config = new IndexWriterConfig(new StandardAnalyzer());
     IndexWriter writer;
-    try {
-        writer = new IndexWriter(dir, config);
-    } catch (IOException e) {
-        e.printStackTrace();
-        return;
-    }
+    writer = new IndexWriter(dir, config);
 
     DocumentProcessor processor = new DocumentProcessor(writer);
     long ingestStartTime = System.currentTimeMillis();
@@ -37,33 +37,19 @@ public static void main(String[] args) throws IOException {
     for (String chunkfile : stringList) {
         System.out.println(chunkfile);
         InputStream inputStream;
-        try {
-            inputStream = new FileInputStream(chunkfile);
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-            return;
-        }
+        inputStream = new FileInputStream(chunkfile);
         CorpusFile corpus = new CorpusFile(inputStream);
         corpus.process(processor);
     }
 
     // Commit index.
-    try {
-        writer.commit();
-    } catch (IOException e) {
-        e.printStackTrace();
-        return;
-    }
+    writer.commit();
     long ingestDoneTime = System.currentTimeMillis();
 
     // Now search the index:
     DirectoryReader ireader = null;
-    try {
-        ireader = DirectoryReader.open(dir);
-    } catch (IOException e) {
-        e.printStackTrace();
-        return;
-    }
+    ireader = DirectoryReader.open(dir);
+
     IndexSearcher isearcher = new IndexSearcher(ireader);
 
 //    // Debug prints.
@@ -86,13 +72,50 @@ public static void main(String[] args) throws IOException {
 
 
     // Add something so we don't optimize away all work.
+    // Note that this is not threadsafe, which means that this code is running faster than it "should".
     TotalHitCountCollector collector = new TotalHitCountCollector();
 
-    long queryStartTime = System.currentTimeMillis();
+
     String queryFilename = "/home/danluu/dev/wikipedia.100.200.old/terms.d20.txt";
-    List<String> queryLog = getLinesFromFile(queryFilename);
-    for (String queryString : queryLog) {
-        String[] terms= queryString.split(" ");
+    List<String> tempQueryLog = getLinesFromFile(queryFilename);
+    String[] queryLog = tempQueryLog.toArray(new String[]{});
+
+    AtomicInteger numCompleted = new AtomicInteger(0);
+    ExecutorService executor = Executors.newFixedThreadPool(8);
+
+    long queryStartTime = System.currentTimeMillis();
+    IntStream.range(0, queryLog.length).forEach(
+            i -> {
+                Runnable task = () -> {
+                    try {
+                        executeQuery(i, queryLog, isearcher, collector);
+                        numCompleted.incrementAndGet();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        return;
+                    }
+                };
+                executor.execute(task);
+            }
+    );
+    executor.shutdown();
+    executor.awaitTermination(300, TimeUnit.SECONDS);
+//    for (int i = 0; i < queryLog.length; ++i) {
+//        executeQuery(i, queryLog, isearcher, collector);
+//    }
+    long queryDoneTime = System.currentTimeMillis();
+    long queryDuration = queryDoneTime - queryStartTime;
+    Double qps = Double.valueOf(queryLog.length / (Double.valueOf(queryDuration)) * 1000.0);
+    System.out.println("queryDuration: " + queryDuration);
+    System.out.println("queryLog.size(): " + queryLog.length);
+    System.out.println("queries run: " + numCompleted.get());
+    System.out.println("qps: " + qps);
+    System.out.println("total matches: " + collector.getTotalHits());
+
+}
+
+    private static void executeQuery(int index, String[] queries, IndexSearcher isearcher, TotalHitCountCollector collector) throws IOException {
+        String[] terms= queries[index].split(" ");
         BooleanQuery.Builder queryBuilder = new BooleanQuery.Builder();
         for (String termText : terms) {
             // field seems to be "00" for title, "01" for body.
@@ -104,14 +127,6 @@ public static void main(String[] args) throws IOException {
         ConstantScoreQuery query = new ConstantScoreQuery(tempQuery);
         isearcher.search(query, collector);
     }
-    long queryDoneTime = System.currentTimeMillis();
-    long queryDuration = queryDoneTime - queryStartTime;
-    Double qps = Double.valueOf(queryLog.size() / (Double.valueOf(queryDuration)) * 1000.0);
-    System.out.println("queryDuration: " + queryDuration);
-    System.out.println("queryLog.size(): " + queryLog.size());
-    System.out.println("qps: " + qps);
-
-}
 
     private static List<String> getLinesFromFile(String manifestFilename) throws IOException {
         Path filepath = new File(manifestFilename).toPath();
