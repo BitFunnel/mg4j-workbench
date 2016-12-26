@@ -97,7 +97,7 @@ public static void main(String[] args) throws IOException, InterruptedException 
         IndexWriter writer =  new IndexWriter(dir, config);
 
         AtomicInteger fileIdx = new AtomicInteger();
-        System.out.println("Ingesting " + chunkfileNames.length + " documents.");
+        System.out.println("Ingesting " + chunkfileNames.length + " chunkfiles.");
         long ingestStartTime = System.currentTimeMillis();
         IntStream.range(0, numThreads).forEach(
                 t -> {
