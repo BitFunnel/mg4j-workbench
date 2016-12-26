@@ -36,57 +36,20 @@ public static void main(String[] args) throws IOException, InterruptedException 
 
     IndexSearcher isearcher = new IndexSearcher(ireader);
 
-//    // Debug prints.
-//    try {
-//        Fields fields = MultiFields.getFields(ireader);
-//        for (String field : fields) {
-//            System.out.println("Field: " + field);
-//            Terms terms = null;
-//                terms = fields.terms(field);
-//                System.out.println("terms.size(): " + terms.size());
-//                TermsEnum termsEnum = terms.iterator();
-//                while (termsEnum.next() != null) {
-//                    System.out.println(termsEnum.term().utf8ToString());
-//                }
-//        }
-//    } catch (IOException e) {
-//        e.printStackTrace();
-//        return;
-//    }
-
-
-
     String queryFilename = "/home/danluu/dev/wikipedia.100.200.old/terms.d20.txt";
     String[] queryLog = getLinesFromFile(queryFilename);
 
 
     AtomicInteger numCompleted = new AtomicInteger();
     AtomicInteger numHits = new AtomicInteger();
+    System.out.println("Query warmup.");
+    executeQueries(numThreads, completionService, isearcher, queryLog, numCompleted, numHits);
+    numCompleted.set(0);
+    numHits.set(0);
     System.out.println("Querying.");
     System.gc();
     long queryStartTime = System.currentTimeMillis();
-    IntStream.range(0, numThreads).forEach(
-            t -> {
-                Callable task = () -> {
-                    // Add some kind of collector so we don't optimize away all work.
-                    TotalHitCountCollector collector = new TotalHitCountCollector();
-                    while (true) {
-                        int idx = numCompleted.getAndIncrement();
-                        if (idx >= queryLog.length) {
-                            numCompleted.decrementAndGet();
-                            numHits.addAndGet(collector.getTotalHits());
-                            return null;
-                        }
-                        executeQuery(idx, queryLog, isearcher, collector);
-                    }
-                };
-                completionService.submit(task);
-            }
-    );
-
-    for (int i = 0; i < numThreads; ++i) {
-        completionService.take();
-    }
+    executeQueries(numThreads, completionService, isearcher, queryLog, numCompleted, numHits);
     long queryDoneTime = System.currentTimeMillis();
 
     executor.shutdown();
@@ -101,6 +64,31 @@ public static void main(String[] args) throws IOException, InterruptedException 
     System.out.println("total matches: " + numHits.get());
 
 }
+
+    private static void executeQueries(int numThreads, ExecutorCompletionService completionService, IndexSearcher isearcher, String[] queryLog, AtomicInteger numCompleted, AtomicInteger numHits) throws InterruptedException {
+        IntStream.range(0, numThreads).forEach(
+                t -> {
+                    Callable task = () -> {
+                        // Add some kind of collector so we don't optimize away all work.
+                        TotalHitCountCollector collector = new TotalHitCountCollector();
+                        while (true) {
+                            int idx = numCompleted.getAndIncrement();
+                            if (idx >= queryLog.length) {
+                                numCompleted.decrementAndGet();
+                                numHits.addAndGet(collector.getTotalHits());
+                                return null;
+                            }
+                            executeQuery(idx, queryLog, isearcher, collector);
+                        }
+                    };
+                    completionService.submit(task);
+                }
+        );
+
+        for (int i = 0; i < numThreads; ++i) {
+            completionService.take();
+        }
+    }
 
     private static void ingestDocuments(String manifestFilename, Directory dir, int numThreads, ExecutorCompletionService completionService) throws IOException, InterruptedException {
         String[] chunkfileNames = getLinesFromFile(manifestFilename);
