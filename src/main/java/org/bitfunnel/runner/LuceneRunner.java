@@ -19,31 +19,55 @@ import java.util.stream.IntStream;
 class LuceneRunner {
 public static void main(String[] args) throws IOException, InterruptedException {
     // Open manifest.
-    String manifestFilename = "/home/danluu/dev/wikipedia.100.150/Manifest.Short.txt";
-    // String manifestFilename = "/home/danluu/dev/wikipedia.100.150/Manifest.txt";
-    List<String> stringList = getLinesFromFile(manifestFilename);
+    // String manifestFilename = "/home/danluu/dev/wikipedia.100.150/Manifest.Short.txt";
+    String manifestFilename = "/home/danluu/dev/wikipedia.100.150/Manifest.txt";
+    String[] chunkfileNames = getLinesFromFile(manifestFilename);
 
     // Lucene setup.
     Directory dir = new RAMDirectory();
     IndexWriterConfig config = new IndexWriterConfig(new StandardAnalyzer());
-    IndexWriter writer;
-    writer = new IndexWriter(dir, config);
+    IndexWriter writer =  new IndexWriter(dir, config);
 
-    DocumentProcessor processor = new DocumentProcessor(writer);
+    int numThreads = 8;
+    ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+    ExecutorCompletionService completionService = new ExecutorCompletionService(executor);
 
+    AtomicInteger fileIdx = new AtomicInteger();
+    System.out.println("Ingesting " + chunkfileNames.length + " documents.");
     long ingestStartTime = System.currentTimeMillis();
-    // Ingest chunkfiles into Index.
-    for (String chunkfile : stringList) {
-        System.out.println(chunkfile);
-        InputStream inputStream;
-        inputStream = new FileInputStream(chunkfile);
-        CorpusFile corpus = new CorpusFile(inputStream);
-        corpus.process(processor);
+    IntStream.range(0, numThreads).forEach(
+            t -> {
+                Callable task = () -> {
+                    try {
+                        DocumentProcessor processor = new DocumentProcessor(writer);
+                        while (true) {
+                            int idx = fileIdx.getAndIncrement();
+                            if (idx >= chunkfileNames.length) {
+                                fileIdx.decrementAndGet();
+                                return null;
+                            }
+                            InputStream inputStream = new FileInputStream(chunkfileNames[idx]);
+                            CorpusFile corpus = new CorpusFile(inputStream);
+                            corpus.process(processor);
+                        }
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        return null;
+                    }
+                };
+                completionService.submit(task);
+            }
+    );
+
+    for (int i = 0; i < numThreads; ++i) {
+        completionService.take();
     }
 
     // Commit index.
     writer.commit();
     long ingestDoneTime = System.currentTimeMillis();
+
+    System.out.println("numIngested: " + fileIdx.get());
 
     // Now search the index:
     DirectoryReader ireader = null;
@@ -72,34 +96,26 @@ public static void main(String[] args) throws IOException, InterruptedException 
 
 
     String queryFilename = "/home/danluu/dev/wikipedia.100.200.old/terms.d20.txt";
-    List<String> tempQueryLog = getLinesFromFile(queryFilename);
-    String[] queryLog = tempQueryLog.toArray(new String[]{});
+    String[] queryLog = getLinesFromFile(queryFilename);
+
 
     AtomicInteger numCompleted = new AtomicInteger();
     AtomicInteger numHits = new AtomicInteger();
-    int numThreads = 8;
-    ExecutorService executor = Executors.newFixedThreadPool(numThreads);
-    ExecutorCompletionService completionService = new ExecutorCompletionService(executor);
-
+    System.out.println("Querying.");
     long queryStartTime = System.currentTimeMillis();
     IntStream.range(0, numThreads).forEach(
             t -> {
                 Callable task = () -> {
-                    try {
-                        // Add some kind of collector so we don't optimize away all work.
-                        TotalHitCountCollector collector = new TotalHitCountCollector();
-                        while (true) {
-                            int idx = numCompleted.getAndIncrement();
-                            if (idx >= queryLog.length) {
-                                numCompleted.decrementAndGet();
-                                numHits.addAndGet(collector.getTotalHits());
-                                return null;
-                            }
-                            executeQuery(idx, queryLog, isearcher, collector);
+                    // Add some kind of collector so we don't optimize away all work.
+                    TotalHitCountCollector collector = new TotalHitCountCollector();
+                    while (true) {
+                        int idx = numCompleted.getAndIncrement();
+                        if (idx >= queryLog.length) {
+                            numCompleted.decrementAndGet();
+                            numHits.addAndGet(collector.getTotalHits());
+                            return null;
                         }
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                        return null;
+                        executeQuery(idx, queryLog, isearcher, collector);
                     }
                 };
                 completionService.submit(task);
@@ -107,7 +123,7 @@ public static void main(String[] args) throws IOException, InterruptedException 
     );
 
     for (int i = 0; i < numThreads; ++i) {
-        completionService.poll();
+        completionService.take();
     }
     long queryDoneTime = System.currentTimeMillis();
 
@@ -138,10 +154,11 @@ public static void main(String[] args) throws IOException, InterruptedException 
         isearcher.search(query, collector);
     }
 
-    private static List<String> getLinesFromFile(String manifestFilename) throws IOException {
+    private static String[] getLinesFromFile(String manifestFilename) throws IOException {
         Path filepath = new File(manifestFilename).toPath();
         List<String> stringList;
         stringList= Files.readAllLines(filepath);
-        return stringList;
+        String[] stringArray = stringList.toArray(new String[]{});
+        return stringArray;
     }
 }
