@@ -5,12 +5,14 @@ import org.apache.lucene.index.*;
 import org.apache.lucene.search.*;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.store.RAMDirectory;
 
 import java.io.*;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -26,7 +28,14 @@ public static void main(String[] args) throws IOException, InterruptedException 
     String manifestFilename = args[0];
 
     // Lucene setup.
-    Directory dir = new RAMDirectory();
+    // We use MMapDirectory instead of RAMDirectory because Lucene documentation recommends MMapDirectory for better
+    // performance with "large" (> 100MB) indicies.
+    // However, other people have observed minimal differences between the two:
+    // http://blog.mikemccandless.com/2012/07/lucene-index-in-ram-with-azuls-zing-jvm.html
+    // With our setup, ingestion is significantly slower and querying is marginally faster when using MMapDirectory.
+    // The speedup in query speed is within the normal variance between runs whereas the slowdown in ingestion speed is
+    // large and noticable.
+    Directory dir = new MMapDirectory(Paths.get("/tmp"));
     int numThreads = Integer.parseInt(args[2]);
     ExecutorService executor = Executors.newFixedThreadPool(numThreads);
     ExecutorCompletionService completionService = new ExecutorCompletionService(executor);
