@@ -18,13 +18,16 @@ import java.util.stream.IntStream;
 
 class LuceneRunner {
 public static void main(String[] args) throws IOException, InterruptedException {
-    // Open manifest.
-    // String manifestFilename = "/home/danluu/dev/wikipedia.100.150/Manifest.Short.txt";
-    String manifestFilename = "/home/danluu/dev/wikipedia.100.150/Manifest.txt";
+    if (args.length != 3) {
+        System.out.println("Usage: [manifest] [query log] [num threads]");
+        return;
+    }
+
+    String manifestFilename = args[0];
 
     // Lucene setup.
     Directory dir = new RAMDirectory();
-    int numThreads = 8;
+    int numThreads = Integer.parseInt(args[2]);
     ExecutorService executor = Executors.newFixedThreadPool(numThreads);
     ExecutorCompletionService completionService = new ExecutorCompletionService(executor);
 
@@ -36,7 +39,7 @@ public static void main(String[] args) throws IOException, InterruptedException 
 
     IndexSearcher isearcher = new IndexSearcher(ireader);
 
-    String queryFilename = "/home/danluu/dev/wikipedia.100.200.old/terms.d20.txt";
+    String queryFilename = args[1];
     String[] queryLog = getLinesFromFile(queryFilename);
 
 
