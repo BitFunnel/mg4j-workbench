@@ -148,6 +148,8 @@ public static void main(String[] args) throws IOException, InterruptedException 
 
     private static void executeQuery(int index, String[] queries, IndexSearcher isearcher, TotalHitCountCollector collector) throws IOException {
         String[] terms= queries[index].split(" ");
+        // Note: we also tried using Lucene's "Classic" query parser. It gets the same results but it's slightly slower,
+        // presumebly due to the extra overhead of having to actually parse the string.
         BooleanQuery.Builder queryBuilder = new BooleanQuery.Builder();
         for (String termText : terms) {
             // field seems to be "00" for title, "01" for body.
