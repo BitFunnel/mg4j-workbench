@@ -35,7 +35,7 @@ public static void main(String[] args) throws IOException, InterruptedException 
     // With our setup, ingestion is significantly slower and querying is marginally faster when using MMapDirectory.
     // The speedup in query speed is within the normal variance between runs whereas the slowdown in ingestion speed is
     // large and noticable.
-    Directory dir = new MMapDirectory(Paths.get("/tmp"));
+    Directory dir = new MMapDirectory(Paths.get("/tmp/lucene-measure"));
     int numThreads = Integer.parseInt(args[2]);
     ExecutorService executor = Executors.newFixedThreadPool(numThreads);
     ExecutorCompletionService completionService = new ExecutorCompletionService(executor);
@@ -51,17 +51,21 @@ public static void main(String[] args) throws IOException, InterruptedException 
     String queryFilename = args[1];
     String[] queryLog = getLinesFromFile(queryFilename);
 
+    // Measure execution latencies. Note that this methodology is not sufficient for measuring "real" tail latency.
+    // Also note that throughput measurements for the paper were done with individual query measurement turned off, although the overhead should be low.
+    long[] queryTimes = new long[queryLog.length];
+
 
     AtomicInteger numCompleted = new AtomicInteger();
     AtomicInteger numHits = new AtomicInteger();
     System.out.println("Query warmup.");
-    executeQueries(numThreads, completionService, isearcher, queryLog, numCompleted, numHits);
+    executeQueries(numThreads, completionService, isearcher, queryLog, numCompleted, numHits, queryTimes);
     numCompleted.set(0);
     numHits.set(0);
     System.out.println("Querying.");
     System.gc();
     long queryStartTime = System.currentTimeMillis();
-    executeQueries(numThreads, completionService, isearcher, queryLog, numCompleted, numHits);
+    executeQueries(numThreads, completionService, isearcher, queryLog, numCompleted, numHits, queryTimes);
     long queryDoneTime = System.currentTimeMillis();
 
     executor.shutdown();
@@ -75,9 +79,22 @@ public static void main(String[] args) throws IOException, InterruptedException 
     System.out.println("qps: " + qps);
     System.out.println("total matches: " + numHits.get());
 
+    java.util.Arrays.sort(queryTimes);
+    int maxIdx = queryTimes.length - 1;
+    int[] timeIdx = {
+            maxIdx - maxIdx / 2,
+            maxIdx - maxIdx / 10,
+            maxIdx - maxIdx / 100,
+            maxIdx - maxIdx / 1000,
+            maxIdx};
+
+    for (int idx : timeIdx) {
+        System.out.print(((double)queryTimes[idx]) / 1e9 + ",");
+    }
+
 }
 
-    private static void executeQueries(int numThreads, ExecutorCompletionService completionService, IndexSearcher isearcher, String[] queryLog, AtomicInteger numCompleted, AtomicInteger numHits) throws InterruptedException {
+    private static void executeQueries(int numThreads, ExecutorCompletionService completionService, IndexSearcher isearcher, String[] queryLog, AtomicInteger numCompleted, AtomicInteger numHits, long[] queryTimes) throws InterruptedException {
         IntStream.range(0, numThreads).forEach(
                 t -> {
                     Callable task = () -> {
@@ -90,7 +107,10 @@ public static void main(String[] args) throws IOException, InterruptedException 
                                 numHits.addAndGet(collector.getTotalHits());
                                 return null;
                             }
+                            long singleStartTime = System.nanoTime();
                             executeQuery(idx, queryLog, isearcher, collector);
+                            long singleEndTime = System.nanoTime();
+                            queryTimes[idx] = singleEndTime - singleStartTime;
                         }
                     };
                     completionService.submit(task);
