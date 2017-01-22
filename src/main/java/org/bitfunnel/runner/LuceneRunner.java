@@ -53,19 +53,21 @@ public static void main(String[] args) throws IOException, InterruptedException 
 
     // Measure execution latencies. Note that this methodology is not sufficient for measuring "real" tail latency.
     // Also note that throughput measurements for the paper were done with individual query measurement turned off, although the overhead should be low.
-    long[] queryTimes = new long[queryLog.length];
+    // long[] queryTimes = new long[queryLog.length];
 
 
     AtomicInteger numCompleted = new AtomicInteger();
     AtomicInteger numHits = new AtomicInteger();
     System.out.println("Query warmup.");
-    executeQueries(numThreads, completionService, isearcher, queryLog, numCompleted, numHits, queryTimes);
+    // executeQueries(numThreads, completionService, isearcher, queryLog, numCompleted, numHits, queryTimes);
+    executeQueries(numThreads, completionService, isearcher, queryLog, numCompleted, numHits);
     numCompleted.set(0);
     numHits.set(0);
     System.out.println("Querying.");
     System.gc();
     long queryStartTime = System.currentTimeMillis();
-    executeQueries(numThreads, completionService, isearcher, queryLog, numCompleted, numHits, queryTimes);
+    // executeQueries(numThreads, completionService, isearcher, queryLog, numCompleted, numHits, queryTimes);
+    executeQueries(numThreads, completionService, isearcher, queryLog, numCompleted, numHits);
     long queryDoneTime = System.currentTimeMillis();
 
     executor.shutdown();
@@ -79,22 +81,23 @@ public static void main(String[] args) throws IOException, InterruptedException 
     System.out.println("qps: " + qps);
     System.out.println("total matches: " + numHits.get());
 
-    java.util.Arrays.sort(queryTimes);
-    int maxIdx = queryTimes.length - 1;
-    int[] timeIdx = {
-            maxIdx - maxIdx / 2,
-            maxIdx - maxIdx / 10,
-            maxIdx - maxIdx / 100,
-            maxIdx - maxIdx / 1000,
-            maxIdx};
-
-    for (int idx : timeIdx) {
-        System.out.print(((double)queryTimes[idx]) / 1e9 + ",");
-    }
+//    java.util.Arrays.sort(queryTimes);
+//    int maxIdx = queryTimes.length - 1;
+//    int[] timeIdx = {
+//            maxIdx - maxIdx / 2,
+//            maxIdx - maxIdx / 10,
+//            maxIdx - maxIdx / 100,
+//            maxIdx - maxIdx / 1000,
+//            maxIdx};
+//
+//    for (int idx : timeIdx) {
+//        System.out.print(((double)queryTimes[idx]) / 1e9 + ",");
+//    }
 
 }
 
-    private static void executeQueries(int numThreads, ExecutorCompletionService completionService, IndexSearcher isearcher, String[] queryLog, AtomicInteger numCompleted, AtomicInteger numHits, long[] queryTimes) throws InterruptedException {
+    //private static void executeQueries(int numThreads, ExecutorCompletionService completionService, IndexSearcher isearcher, String[] queryLog, AtomicInteger numCompleted, AtomicInteger numHits, long[] queryTimes) throws InterruptedException {
+    private static void executeQueries(int numThreads, ExecutorCompletionService completionService, IndexSearcher isearcher, String[] queryLog, AtomicInteger numCompleted, AtomicInteger numHits) throws InterruptedException {
         IntStream.range(0, numThreads).forEach(
                 t -> {
                     Callable task = () -> {
@@ -107,10 +110,10 @@ public static void main(String[] args) throws IOException, InterruptedException 
                                 numHits.addAndGet(collector.getTotalHits());
                                 return null;
                             }
-                            long singleStartTime = System.nanoTime();
-                            executeQuery(idx, queryLog, isearcher, collector);
-                            long singleEndTime = System.nanoTime();
-                            queryTimes[idx] = singleEndTime - singleStartTime;
+//                            long singleStartTime = System.nanoTime();
+//                            executeQuery(idx, queryLog, isearcher, collector);
+//                            long singleEndTime = System.nanoTime();
+//                            queryTimes[idx] = singleEndTime - singleStartTime;
                         }
                     };
                     completionService.submit(task);
