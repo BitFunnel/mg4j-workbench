@@ -111,7 +111,7 @@ public static void main(String[] args) throws IOException, InterruptedException 
                                 return null;
                             }
 //                            long singleStartTime = System.nanoTime();
-//                            executeQuery(idx, queryLog, isearcher, collector);
+                              executeQuery(idx, queryLog, isearcher, collector);
 //                            long singleEndTime = System.nanoTime();
 //                            queryTimes[idx] = singleEndTime - singleStartTime;
                         }
@@ -178,7 +178,8 @@ public static void main(String[] args) throws IOException, InterruptedException 
             // field seems to be "00" for title, "01" for body.
             Term term = new Term("01", termText);
             TermQuery termQuery = new TermQuery(term);
-            queryBuilder.add(termQuery, BooleanClause.Occur.MUST);
+            // Using FILTER instead of MUST because FILTER doesn't score.
+            queryBuilder.add(termQuery, Occur.FILTER);
         }
         BooleanQuery tempQuery = queryBuilder.build();
         ConstantScoreQuery query = new ConstantScoreQuery(tempQuery);
