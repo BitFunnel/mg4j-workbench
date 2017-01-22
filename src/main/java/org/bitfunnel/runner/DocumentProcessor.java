@@ -48,6 +48,7 @@ public class DocumentProcessor implements IDocumentProcessor {
 
     @Override
     public void closeStream() {
+        // TODO: since we're not ranking, we should disable norms to save space.
         Field field = new Field(currentStreamName, currentString.toString(), TextField.TYPE_NOT_STORED);
         currentDocument.add(field);
     }
