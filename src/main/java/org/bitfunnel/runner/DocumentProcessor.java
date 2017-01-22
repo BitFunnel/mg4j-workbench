@@ -2,6 +2,7 @@ package org.bitfunnel.runner;
 
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
+import org.apache.lucene.document.StoredField;
 import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.IndexWriter;
 
@@ -26,8 +27,10 @@ public class DocumentProcessor implements IDocumentProcessor {
 
     @Override
     public void openDocument(Long documentId) {
-        // System.out.println("openDocument " + documentId);
         currentDocument.clear();
+        // System.out.println("openDocument " + documentId);
+        Field field = new StoredField("id", documentId);
+        currentDocument.add(field);
     }
 
     @Override
