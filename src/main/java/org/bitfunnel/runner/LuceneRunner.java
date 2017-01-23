@@ -79,7 +79,7 @@ public static void main(String[] args) throws IOException, InterruptedException 
     System.out.println("queryLog.size(): " + queryLog.length);
     System.out.println("queries run: " + numCompleted.get());
     System.out.println("qps: " + qps);
-    System.out.println("total matches: " + numHits.get());
+    // System.out.println("total matches: " + numHits.get());
 
 //    java.util.Arrays.sort(queryTimes);
 //    int maxIdx = queryTimes.length - 1;
@@ -101,13 +101,17 @@ public static void main(String[] args) throws IOException, InterruptedException 
         IntStream.range(0, numThreads).forEach(
                 t -> {
                     Callable task = () -> {
-                        // Add some kind of collector so we don't optimize away all work.
-                        TotalHitCountCollector collector = new TotalHitCountCollector();
+                        // This collector is bogus. We add a colletor that returns Lucene IDs, which can then be looked up
+                        // to get wikipedia IDs. However, since we have no use for the IDs it's possible the JVM optimizes
+                        // all of this out. Or maybe it doesn't. If it were up to me, I wouldn't write this code this way.
+                        // Sorry!
+                        MatchingCollector collector = new MatchingCollector();
                         while (true) {
                             int idx = numCompleted.getAndIncrement();
                             if (idx >= queryLog.length) {
                                 numCompleted.decrementAndGet();
-                                numHits.addAndGet(collector.getTotalHits());
+                                // numHits.addAndGet(collector.getTotalHits());
+                                collector.getDocIds();
                                 return null;
                             }
 //                            long singleStartTime = System.nanoTime();
@@ -169,7 +173,7 @@ public static void main(String[] args) throws IOException, InterruptedException 
         System.out.println("numIngested: " + fileIdx.get());
     }
 
-    private static void executeQuery(int index, String[] queries, IndexSearcher isearcher, TotalHitCountCollector collector) throws IOException {
+    private static void executeQuery(int index, String[] queries, IndexSearcher isearcher, Collector collector) throws IOException {
         String[] terms= queries[index].split(" ");
         // Note: we also tried using Lucene's "Classic" query parser. It gets the same results but it's slightly slower,
         // presumebly due to the extra overhead of having to actually parse the string.
