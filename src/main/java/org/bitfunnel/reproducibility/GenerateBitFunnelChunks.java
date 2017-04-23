@@ -26,9 +26,13 @@ import it.unimi.dsi.io.WordReader;
 import it.unimi.dsi.lang.MutableString;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.Reader;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import org.apache.commons.configuration.ConfigurationException;
 import org.slf4j.Logger;
@@ -57,8 +61,9 @@ public class GenerateBitFunnelChunks {
     final static Logger LOGGER = LoggerFactory.getLogger( GenerateBitFunnelChunks.class );
 
 
+    // TODO: Remove throws java.lang.Exception. This is too general.
     @SuppressWarnings({ "unchecked", "resource" })
-    public static void main( final String[] arg ) throws JSAPException, InvocationTargetException, NoSuchMethodException, IllegalAccessException, ConfigurationException, ClassNotFoundException, IOException, InstantiationException, URISyntaxException {
+    public static void main( final String[] arg ) throws  Exception, JSAPException, InvocationTargetException, NoSuchMethodException, IllegalAccessException, ConfigurationException, ClassNotFoundException, IOException, InstantiationException, URISyntaxException {
 
         SimpleJSAP jsap = new SimpleJSAP( GenerateBitFunnelChunks.class.getName(), "Builds an index (creates batches, combines them, and builds a term map).",
                 new Parameter[] {
@@ -68,7 +73,7 @@ public class GenerateBitFunnelChunks {
                         new FlaggedOption( "property", JSAP.STRING_PARSER, JSAP.NO_DEFAULT, JSAP.NOT_REQUIRED, 'p', "property", "A 'key=value' specification, or the name of a property file (when indexing stdin)." ).setAllowMultipleDeclarations( true ),
                         // TODO: Decide whether to implement "downcase" switch. May want to hard-code this behavior.
                         new Switch( "downcase", JSAP.NO_SHORTFLAG, "downcase", "A shortcut for setting the term processor to the downcasing processor." ),
-                        new UnflaggedOption( "chunkfile", JSAP.STRING_PARSER, JSAP.REQUIRED, "The name of the BitFunnel chunk file." )
+                        new UnflaggedOption( "chunkFile", JSAP.STRING_PARSER, JSAP.REQUIRED, "The name of the BitFunnel chunk file." )
         });
 
         JSAPResult jsapResult = jsap.parse( arg );
@@ -78,29 +83,61 @@ public class GenerateBitFunnelChunks {
 
         // TODO: put following code in run() method.
 
-        DocumentIterator documentIterator = documentSequence.iterator();
-        Document document;
-        Reader reader;
-        WordReader wordReader;
-        final MutableString word = new MutableString(), nonWord = new MutableString();
+        Path chunkFile = Paths.get(jsapResult.getString( "chunkFile" ));
+        if (Files.exists(chunkFile)) {
+            System.out.println("Error: chunk file " + chunkFile.getFileName() + " already exists.");
+        }
+        else {
+            Files.createDirectories(chunkFile.getParent());
+            OutputStream outputStream = Files.newOutputStream(chunkFile);
+            ChunkFile chunk = new ChunkFile(outputStream);
 
-        // Scaffolding to demonstrate iteration over documents, fields, and terms.
-        while( ( document = documentIterator.nextDocument() ) != null ) {
-            System.out.println(document.title());
+            DocumentIterator documentIterator = documentSequence.iterator();
+            Document document;
+            Reader reader;
+            WordReader wordReader;
+            final MutableString word = new MutableString(), nonWord = new MutableString();
 
-            // TODO: Don't hard-code fields.
-            for (int f = 0; f < 2; ++f) {
-                System.out.println("  Field: " + f);
-                Object content = document.content(f);
-                reader = (Reader) content;
-                wordReader = document.wordReader(f);
-                wordReader.setReader(reader);
-                while (wordReader.next(word, nonWord)) {
-                    System.out.print("    ");
-                    // TODO: downcase word here.
-                    System.out.println(word);
+            // Scaffolding to demonstrate iteration over documents, fields, and terms.
+            try (ChunkFile.FileScope fileScope = chunk.new FileScope()) {
+                int documentId = 0;
+                while ((document = documentIterator.nextDocument()) != null) {
+                    System.out.println(document.title());
+
+                    try (ChunkFile.DocumentScope documentScope = chunk.new DocumentScope(documentId)) {
+
+                        // TODO: Don't hard-code fields.
+                        for (int f = 0; f < 2; ++f)
+                        {
+                            System.out.println("  Field: " + f);
+
+                            try (ChunkFile.StreamScope streamScope = chunk.new StreamScope(f)) {
+                                Object content = document.content(f);
+                                reader = (Reader) content;
+                                wordReader = document.wordReader(f);
+                                wordReader.setReader(reader);
+                                while (wordReader.next(word, nonWord)) {
+                                    String text = word.toString().toLowerCase();
+
+                                    if (text.length() > 0) {
+                                        System.out.print("    ");
+                                        System.out.println(text);
+
+                                        chunk.emit(text);
+                                    }
+                                    else {
+                                        System.out.println("    Skipped zero-length word.");
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    ++documentId;
                 }
             }
+
+            outputStream.close();
         }
     }
 }

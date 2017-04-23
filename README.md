@@ -30,9 +30,19 @@ TODO: set JAVA_HOME
 Import pom.xml.
 Build -> Build Project
 
+// TODO: Describe step-by-step.
+// TODO: Add pictures.
+
 ## Creating an mg4j collection.
 
-Coming soon.
+~~~
+java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar \
+     it.unimi.di.big.mg4j.document.TRECDocumentCollection \
+     -f HtmlDocumentFactory -p encoding=iso-8859-1 d:\data\work\out2.collection d:\data\gov2\gx000\gx000\00.txt
+~~~
+
+TODO: -z parameter for gz files.
+TODO: substute <COLLECTION FILE> <GOV2 Files ...>
 
 ## Creating a BitFunnel chunk file from an mg4j collection.
 
@@ -51,3 +61,12 @@ java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar org.bitfunnel.reprod
 ## Processing a query log.
 
 Coming soon.
+
+## Building an mg4j index.
+
+~~~
+java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar it.unimi.di.big.mg4j.tool.IndexBuilder --keep-batches --downcase -S d:\data\work\out2.collection d:\data\work\out2
+~~~
+
+TODO: Substitute <COLLECTION FILE> <BASENAME>
+TODO: Add document filter parameter.
