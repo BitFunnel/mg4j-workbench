@@ -32,7 +32,7 @@ Build -> Build Project
 
 ## Creating an mg4j collection.
 
-Comming soon.
+Coming soon.
 
 ## Creating a BitFunnel chunk file from an mg4j collection.
 
