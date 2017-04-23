@@ -137,5 +137,4 @@ public class Main {
         if ( file.length == 0 ) System.err.println( "WARNING: empty file set." );
         BinIO.storeObject( new TRECDocumentCollection( file, composite, jsapResult.getInt( "bufferSize" ), jsapResult.getBoolean( "gzipped" ) ), jsapResult.getString( "collection" ) );
     }
-
 }
