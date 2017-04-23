@@ -11,13 +11,19 @@ choco install maven
 mvn package
 ~~~
 
+TODO: set JAVA_HOME
+
 ### Linux
 
 ~~~
-sudo apt-get java
-sudo apt-get maven
+sudo add-apt-repository ppa:webupd8team/java
+sudo apt-get update
+sudo apt-get install oracle-java8-installer
+sudo apt-get install maven
 mvn package
 ~~~
+
+TODO: set JAVA_HOME
 
 ### IntelliJ
 
