@@ -11,7 +11,7 @@ choco install maven
 mvn package
 ~~~
 
-TODO: set JAVA_HOME
+TODO: set JAVA_HOME?
 
 ### Linux
 
@@ -23,7 +23,11 @@ sudo apt-get install maven
 mvn package
 ~~~
 
-TODO: set JAVA_HOME
+TODO: set JAVA_HOME?
+
+### OSX
+
+Coming soon.
 
 ### IntelliJ
 
@@ -52,12 +56,6 @@ java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar \
       -S <collection file> <chunk file>
 ~~~
 
-## Processing a query log.
-
-java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar \
-     org.bitfunnel.reproducibility.ProcessQueryLog \
-      <index base name> <query>
-
 ## Building an mg4j index.
 
 ~~~
@@ -68,3 +66,13 @@ java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar \
 
 TODO: Substitute <COLLECTION FILE> <BASENAME>
 TODO: Add document filter parameter.
+
+
+## Processing a query log.
+
+~~~
+java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar \
+     org.bitfunnel.reproducibility.QueryPerformance \
+     <index base name> <query log>
+~~~
+

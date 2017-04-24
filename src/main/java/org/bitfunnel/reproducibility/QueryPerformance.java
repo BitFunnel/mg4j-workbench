@@ -23,26 +23,19 @@ package org.bitfunnel.reproducibility;
 import it.unimi.di.big.mg4j.document.HtmlDocumentFactory;
 import it.unimi.di.big.mg4j.index.Index;
 import it.unimi.di.big.mg4j.index.TermProcessor;
-import it.unimi.di.big.mg4j.query.IntervalSelector;
 import it.unimi.di.big.mg4j.query.QueryEngine;
 import it.unimi.di.big.mg4j.query.SelectedInterval;
 import it.unimi.di.big.mg4j.query.parser.SimpleParser;
 import it.unimi.di.big.mg4j.search.DocumentIteratorBuilderVisitor;
-import it.unimi.di.big.mg4j.search.score.BM25Scorer;
 import it.unimi.di.big.mg4j.search.score.DocumentScoreInfo;
 import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import it.unimi.dsi.fastutil.objects.Reference2DoubleOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
 
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -58,7 +51,7 @@ import java.util.stream.Stream;
  */
 
 
-public class ProcessQueryLog {
+public class QueryPerformance {
     private final Index text;
     private final Index title;
     private final Object2ReferenceOpenHashMap<String,Index> indexMap;
@@ -67,22 +60,19 @@ public class ProcessQueryLog {
 
     private List<String> queries;
 
+    // Used to record number of matches for each query in queries.
     private int[] matchCounts;
+
+    // Used to record the processing time for each query in queries.
     private long[] timesInNS;
 
-//    static class Result {
-//        public int count;
-//        public double time;
-//
-//        Result(int count, double time) {
-//            this.count = count;
-//            this.time = time;
-//        }
-//    }
 
-
-    public ProcessQueryLog(String basename, String queryLogFile) throws Exception
+    public QueryPerformance(String basename, String queryLogFile) throws Exception
     {
+        //
+        // Set up the index and the engine.
+        //
+
         // TODO: use Paths.get(), etc. here. At least deal with trailing '/' and '.'.
         /** First we open our indices. The booleans tell that we want random access to
          * the inverted lists, and we are going to use document sizes (for scoring--see below). */
@@ -113,17 +103,10 @@ public class ProcessQueryLog {
                 new DocumentIteratorBuilderVisitor( indexMap, text, 1000 ),
                 indexMap);
 
-//        /* Optionally, we can score the results. Here we use a state-of-art ranking
-//		 * function, BM25, which requires document sizes. */
-//        engine.score( new BM25Scorer() );
-//
-//		/* Optionally, we can weight the importance of each index. To do so, we have to pass a map,
-//		 * and again we use the handy fastutil constructor. Note that setting up a BM25F scorer
-//		 * would give much better results, but we want to keep it simple. */
-//        engine.setWeights( new Reference2DoubleOpenHashMap<Index>( new Index[] { text, title }, new double[] { 1, 2 } ) );
-//
-//		/* Optionally, we can use an interval selector to get intervals representing matches. */
-//        engine.intervalSelector = new IntervalSelector();
+
+        //
+        // Set up the query log
+        //
 
         queries = ReadLines(Paths.get(queryLogFile));
 
@@ -137,7 +120,8 @@ public class ProcessQueryLog {
     int ProcessOneQuery(String query) throws Exception {
         // TODO: Reuse the ObjectArrayList for performance.
 
-//        System.out.println("Processing query " + query);
+        // TODO: Investigate whether engine supports returning the match count instead of the actual matches.
+        // TODO: Consider using a modified QueryEngine that only returns counts.
 
 		/* We are ready to run our query. We just need a list to store its results. The list is made
 		 * of DocumentScoreInfo objects, which comprise a document id, a score, and possibly an
@@ -148,18 +132,11 @@ public class ProcessQueryLog {
 
 		/* The query engine can return any subsegment of the results of a query. Here we grab the first 20 results. */
 		// TODO: Increase the length to handle all possibilities.
-        // TODO: Investigate whether engine supports count queries.
-        // TODO: Figure out how to disable DEBUG spew.
+        // TODO: Figure out how to disable DEBUG spew. Consider using a modified QueryEngine with no debug spew.
         //       https://www.slf4j.org/faq.html#logging_performance
         //       Look at QueryEngine.java, line 257. It seems the mg4j does not use parameterized messages.
         //       Probably want to use the query array variant on line 298.
         engine.process( query, 0, 2000, result );
-
-//        for( DocumentScoreInfo<Reference2ObjectMap<Index, SelectedInterval[]>> dsi : result ) {
-//            System.out.println( "  " + dsi.document + " " + dsi.score );
-//        }
-//
-//        System.out.println("ResultCount: " + result.size());
 
         return result.size();
     }
@@ -181,7 +158,7 @@ public class ProcessQueryLog {
             }
         }
 
-        // TODO: Write to file.
+        // TODO: Write measurements to file.
         for (int i = 0 ; i < queries.size(); ++i) {
             System.out.println(String.format("%s,%d,%f", queries.get(i), matchCounts[i], timesInNS[i] * 1e-9));
         }
@@ -192,7 +169,7 @@ public class ProcessQueryLog {
     // [NOT IMPLEMENTED YET]: Third argument: path to output file where results will be written.
     // TODO: third argument should be output file.
     public static void main( String arg[] ) throws Exception {
-        ProcessQueryLog processor = new ProcessQueryLog(arg[0], arg[1]);
+        QueryPerformance processor = new QueryPerformance(arg[0], arg[1]);
         processor.ProcessAllQueries();
     }
 
