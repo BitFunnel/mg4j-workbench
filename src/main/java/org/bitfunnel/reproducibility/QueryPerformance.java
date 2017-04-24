@@ -56,7 +56,7 @@ public class QueryPerformance {
     private final Index title;
     private final Object2ReferenceOpenHashMap<String,Index> indexMap;
     private final Object2ReferenceOpenHashMap<String, TermProcessor> termProcessors;
-    private final QueryEngine engine;
+    private final ExperimentalQueryEngine engine;
 
     private List<String> queries;
 
@@ -98,7 +98,7 @@ public class QueryPerformance {
 		 * (which in turn requires the set of index names and a default index), a document iterator
 		 * builder, which needs the index map, a default index, and a limit on prefix query
 		 * expansion, and finally the index map. */
-        engine = new QueryEngine(
+        engine = new ExperimentalQueryEngine(
                 new SimpleParser( indexMap.keySet(), "text", termProcessors ),
                 new DocumentIteratorBuilderVisitor( indexMap, text, 1000 ),
                 indexMap);
@@ -136,6 +136,9 @@ public class QueryPerformance {
         //       https://www.slf4j.org/faq.html#logging_performance
         //       Look at QueryEngine.java, line 257. It seems the mg4j does not use parameterized messages.
         //       Probably want to use the query array variant on line 298.
+        //
+        //       http://stackoverflow.com/questions/12065658/how-to-use-slf4j-when-there-is-multiple-slf4j-bindings
+
         engine.process( query, 0, 2000, result );
 
         return result.size();
