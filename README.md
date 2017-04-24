@@ -46,26 +46,24 @@ TODO: substute <COLLECTION FILE> <GOV2 Files ...>
 
 ## Creating a BitFunnel chunk file from an mg4j collection.
 
-### Linux
-
 ~~~
-java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar org.bitfunnel.reproducibility.GenerateBitFunnelChunks -S <collection file> <chunk file>
-~~~
-
-### Windows
-
-~~~
-java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar org.bitfunnel.reproducibility.GenerateBitFunnelChunks -S <collection file> <chunk file>
+java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar \
+     org.bitfunnel.reproducibility.GenerateBitFunnelChunks \
+      -S <collection file> <chunk file>
 ~~~
 
 ## Processing a query log.
 
-Coming soon.
+java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar \
+     org.bitfunnel.reproducibility.ProcessQueryLog \
+      <index base name> <query>
 
 ## Building an mg4j index.
 
 ~~~
-java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar it.unimi.di.big.mg4j.tool.IndexBuilder --keep-batches --downcase -S d:\data\work\out2.collection d:\data\work\out2
+java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar \
+     it.unimi.di.big.mg4j.tool.IndexBuilder \
+      --keep-batches --downcase -S d:\data\work\out2.collection d:\data\work\out2
 ~~~
 
 TODO: Substitute <COLLECTION FILE> <BASENAME>
