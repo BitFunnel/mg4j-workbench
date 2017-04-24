@@ -1,7 +1,11 @@
 cat
 dog
 cat dog
+this
+is
+a
 this is a
+this is a house
 house
 miami white pages
 delta air lines

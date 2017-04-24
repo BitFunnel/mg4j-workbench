@@ -36,9 +36,13 @@ import it.unimi.dsi.fastutil.objects.Reference2DoubleOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
 
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -61,8 +65,25 @@ public class ProcessQueryLog {
     private final Object2ReferenceOpenHashMap<String, TermProcessor> termProcessors;
     private final QueryEngine engine;
 
-    public ProcessQueryLog(String basename) throws Exception
+    private List<String> queries;
+
+    private int[] matchCounts;
+    private long[] timesInNS;
+
+//    static class Result {
+//        public int count;
+//        public double time;
+//
+//        Result(int count, double time) {
+//            this.count = count;
+//            this.time = time;
+//        }
+//    }
+
+
+    public ProcessQueryLog(String basename, String queryLogFile) throws Exception
     {
+        // TODO: use Paths.get(), etc. here. At least deal with trailing '/' and '.'.
         /** First we open our indices. The booleans tell that we want random access to
          * the inverted lists, and we are going to use document sizes (for scoring--see below). */
         text = Index.getInstance( basename + "-text", true, true );
@@ -92,24 +113,31 @@ public class ProcessQueryLog {
                 new DocumentIteratorBuilderVisitor( indexMap, text, 1000 ),
                 indexMap);
 
-        		/* Optionally, we can score the results. Here we use a state-of-art ranking
-		 * function, BM25, which requires document sizes. */
-        engine.score( new BM25Scorer() );
+//        /* Optionally, we can score the results. Here we use a state-of-art ranking
+//		 * function, BM25, which requires document sizes. */
+//        engine.score( new BM25Scorer() );
+//
+//		/* Optionally, we can weight the importance of each index. To do so, we have to pass a map,
+//		 * and again we use the handy fastutil constructor. Note that setting up a BM25F scorer
+//		 * would give much better results, but we want to keep it simple. */
+//        engine.setWeights( new Reference2DoubleOpenHashMap<Index>( new Index[] { text, title }, new double[] { 1, 2 } ) );
+//
+//		/* Optionally, we can use an interval selector to get intervals representing matches. */
+//        engine.intervalSelector = new IntervalSelector();
 
-		/* Optionally, we can weight the importance of each index. To do so, we have to pass a map,
-		 * and again we use the handy fastutil constructor. Note that setting up a BM25F scorer
-		 * would give much better results, but we want to keep it simple. */
-        engine.setWeights( new Reference2DoubleOpenHashMap<Index>( new Index[] { text, title }, new double[] { 1, 2 } ) );
+        queries = ReadLines(Paths.get(queryLogFile));
 
-		/* Optionally, we can use an interval selector to get intervals representing matches. */
-        engine.intervalSelector = new IntervalSelector();
+        // DESIGN NOTE: Using arrays of primitives here, instead of an ArrayList of Result objects
+        // to avoid allocation for each result.
+        matchCounts = new int[queries.size()];
+        timesInNS = new long[queries.size()];
     }
 
     // TODO: Figure out exception handling strategy.
     int ProcessOneQuery(String query) throws Exception {
         // TODO: Reuse the ObjectArrayList for performance.
 
-        System.out.println("Processing query " + query);
+//        System.out.println("Processing query " + query);
 
 		/* We are ready to run our query. We just need a list to store its results. The list is made
 		 * of DocumentScoreInfo objects, which comprise a document id, a score, and possibly an
@@ -125,39 +153,53 @@ public class ProcessQueryLog {
         //       https://www.slf4j.org/faq.html#logging_performance
         //       Look at QueryEngine.java, line 257. It seems the mg4j does not use parameterized messages.
         //       Probably want to use the query array variant on line 298.
-        // TODO: Make multithreaded.
-        engine.process( query, 0, 20, result );
+        engine.process( query, 0, 2000, result );
 
-        for( DocumentScoreInfo<Reference2ObjectMap<Index, SelectedInterval[]>> dsi : result ) {
-            System.out.println( "  " + dsi.document + " " + dsi.score );
-        }
-
-        System.out.println("ResultCount: " + result.size());
+//        for( DocumentScoreInfo<Reference2ObjectMap<Index, SelectedInterval[]>> dsi : result ) {
+//            System.out.println( "  " + dsi.document + " " + dsi.score );
+//        }
+//
+//        System.out.println("ResultCount: " + result.size());
 
         return result.size();
     }
 
 
-    // TODO: second argument should be list of queries.
-    // TODO: third argument should be output file.
-    public static void main( String arg[] ) throws Exception {
-        ProcessQueryLog processor = new ProcessQueryLog(arg[0]);
-        processor.ProcessOneQuery("dog");
-        processor.ProcessOneQuery("cat");
+    // TODO: Make multithreaded.
+    // TODO: Measure total running time, in addition to per-query time.
+    void ProcessAllQueries() throws Exception
+    {
+        // Run multiple times to warm system up. Retain measurements from last run.
+        for (int runs = 0; runs < 2; ++runs) {
+            for (int i = 0 ; i < queries.size(); ++i) {
+                //Instant start = Instant.now();
+                long start = System.nanoTime();
+                matchCounts[i] = ProcessOneQuery(queries.get(i));
+                //Instant end = Instant.now();
+                timesInNS[i] = System.nanoTime() - start;
+                //timesInNS[i] = Duration.between(start, end).toNanos();
+            }
+        }
 
-        PrintQueries(Paths.get("d:/git/mg4j-workbench/data/small/queries10.txt"));
+        // TODO: Write to file.
+        for (int i = 0 ; i < queries.size(); ++i) {
+            System.out.println(String.format("%s,%d,%f", queries.get(i), matchCounts[i], timesInNS[i] * 1e-9));
+        }
     }
 
-    public static void PrintQueries(Path file) {
-        List<String> list = null;
-        try (Stream<String> lines = Files.lines(file)) {
-            list = lines.collect(Collectors.toList());
+    // First argument: base name of index.
+    // Second argument: path to a query log file.
+    // [NOT IMPLEMENTED YET]: Third argument: path to output file where results will be written.
+    // TODO: third argument should be output file.
+    public static void main( String arg[] ) throws Exception {
+        ProcessQueryLog processor = new ProcessQueryLog(arg[0], arg[1]);
+        processor.ProcessAllQueries();
+    }
 
-            for (String query : list) {
-                System.out.println(query);
-            }
-        } catch (java.io.IOException e) {
-            System.out.println("Failed to load queries.");
-        }
+
+    public static List<String> ReadLines(Path file) throws IOException {
+        List<String> list = null;
+        Stream<String> lines = Files.lines(file);
+        return lines.collect(Collectors.toList());
     }
 }
