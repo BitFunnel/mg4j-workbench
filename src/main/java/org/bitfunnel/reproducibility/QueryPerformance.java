@@ -132,13 +132,6 @@ public class QueryPerformance {
 
 		/* The query engine can return any subsegment of the results of a query. Here we grab the first 20 results. */
 		// TODO: Increase the length to handle all possibilities.
-        // TODO: Figure out how to disable DEBUG spew. Consider using a modified QueryEngine with no debug spew.
-        //       https://www.slf4j.org/faq.html#logging_performance
-        //       Look at QueryEngine.java, line 257. It seems the mg4j does not use parameterized messages.
-        //       Probably want to use the query array variant on line 298.
-        //
-        //       http://stackoverflow.com/questions/12065658/how-to-use-slf4j-when-there-is-multiple-slf4j-bindings
-
         engine.process( query, 0, 2000, result );
 
         return result.size();

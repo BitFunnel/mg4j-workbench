@@ -256,7 +256,7 @@ public class ExperimentalQueryEngine implements FlyweightPrototype<ExperimentalQ
      */
 
     public int process( final String queries, int offset, final int length, final ObjectArrayList<DocumentScoreInfo<Reference2ObjectMap<Index,SelectedInterval[]>>> results ) throws QueryParserException, QueryBuilderVisitorException, IOException {
-        LOGGER.debug( "Processing query \"" + queries + "\", offset=" + offset + ", length="+ length );
+        //LOGGER.debug( "Processing query \"" + queries + "\", offset=" + offset + ", length="+ length );
         final String[] part = queries.split( "," );
         final Query[] partQuery = new Query[ part.length ];
         for( int i = 0; i < part.length; i++ ) {
@@ -298,7 +298,7 @@ public class ExperimentalQueryEngine implements FlyweightPrototype<ExperimentalQ
      */
     @SuppressWarnings("unchecked")
     public int process( final Query query[], final int offset, final int length, final ObjectArrayList<DocumentScoreInfo<Reference2ObjectMap<Index,SelectedInterval[]>>> results ) throws QueryBuilderVisitorException, IOException {
-        LOGGER.debug( "Processing Query array \"" + Arrays.toString( query ) + "\", offset=" + offset + ", length="+ length );
+        //LOGGER.debug( "Processing Query array \"" + Arrays.toString( query ) + "\", offset=" + offset + ", length="+ length );
         results.clear();
         double lastMinScore = 1;
         int total = 0, count, currOffset = offset, currLength = length;
