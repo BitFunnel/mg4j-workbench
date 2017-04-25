@@ -11,9 +11,9 @@ import java.nio.charset.StandardCharsets;
 public class ChunkDocument implements Document {
     private PushbackInputStream input;
 
-    private MutableString id;
-    private MutableString title;
-    private MutableString uri;
+    private MutableString id = new MutableString();
+    private MutableString title = new MutableString();
+    private MutableString uri = new MutableString();
 
     // buffer holds UTF-8 content of all document streams.
     // Assumes that all documents are truncated at 256kb.
