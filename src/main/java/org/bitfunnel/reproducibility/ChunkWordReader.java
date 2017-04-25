@@ -13,6 +13,8 @@ public class ChunkWordReader implements WordReader {
 
     @Override
     public boolean next(MutableString word, MutableString nonWord) throws IOException {
+        word.length(0);
+        nonWord.length(0);
         if (reader == null) {
             throw new IOException("ChunkWordReader.next(): no reader set.");
         }

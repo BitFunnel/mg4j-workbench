@@ -9,15 +9,24 @@ java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar ^
 echo Building BitFunnel chunks . . .
 java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar ^
      org.bitfunnel.reproducibility.GenerateBitFunnelChunks ^
-      -S d:\data\work\out2.collection d:\data\work\out2.chunk
+     -S d:\data\work\out2.collection d:\data\work\out2.chunk
 
-echo Building mg4j index . . .
+echo Building mg4j index from collection . . .
 java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar ^
      it.unimi.di.big.mg4j.tool.IndexBuilder ^
       --keep-batches --downcase -S d:\data\work\out2.collection d:\data\work\out2
 
+echo Building mg4j index from chunk . . .
+java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar ^
+     it.unimi.di.big.mg4j.tool.IndexBuilder ^
+     -o org.bitfunnel.reproducibility.ChunkDocumentSequence(d:\data\work\out2.chunk) ^
+     d:\data\work\out2Chunk
+
 type d:\data\work\out2-text.properties
+type d:\data\work\out2Chunk-text.properties
+
 type d:\data\work\out2-title.properties
+type d:\data\work\out2Chunk-title.properties
 
 echo Measuring query performance . . .
 java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar ^
