@@ -29,7 +29,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>org.bitfunnel.reproducibility.Main</mainClass>
+                            <mainClass>org.bitfunnel.reproducibility.GenerateBitFunnelChunks</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>
