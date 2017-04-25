@@ -6,11 +6,10 @@ import it.unimi.dsi.lang.MutableString;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 
 
 public class ChunkDocument implements Document {
-    private InputStream input;
+    private PushbackInputStream input;
 
     private MutableString id;
     private MutableString title;
@@ -50,8 +49,8 @@ public class ChunkDocument implements Document {
     Stream streams[] = new Stream[STREAM_COUNT];
 
 
-    // Decide how this class throws parse errors.
-    public ChunkDocument(InputStream input) throws IOException
+    // TODO: Decide how this class throws parse errors.
+    public ChunkDocument(PushbackInputStream input) throws IOException
     {
         this.input = input;
 
@@ -63,29 +62,53 @@ public class ChunkDocument implements Document {
     }
 
 
+    /**
+     * Parses the document id from the chunk. Store the hex digits of the document id
+     * and generates a title and uri based on the document id.
+     *
+     * <pre>
+     * Grammar:
+     *      Corpus: Document* End
+     *      Document: DocumentId End Stream* End
+     *      DocumentId: Hex2 Hex2 Hex2 Hex2 Hex2 Hex2 Hex2 Hex2
+     *      (see rest of grammar in tryParseStream() documentation.
+     * </pre>
+     * @throws IOException
+     */
     private void parseHeader() throws IOException {
-        readHexDigits(id, 8);
+        readHexDigits(id, 16);
         expectByte('\0');
 
+        // For now just use the hex document id as the basis for the title and the uri.
+        // TODO: Consider initializing title from contents of title stream.
         title.append(id);
-        uri.append("http://");
+        uri.append("localhost://");
         uri.append(id);
     }
 
 
+    /**
+     * Attempts to parse the utf-8 representation of a stream from input. If successful,
+     * the utf-8 contents will be appended to buffer, a new entry will be made in the
+     * streams array, and the method will return true. If, on entry, input contains no
+     * more streams, the method returns false.
+     *
+     * <pre>
+     * Grammar:
+     *      Stream: StreamId End (Term End)* End
+     *      StreamId: Hex2
+     *      Hex2: Hex Hex
+     *      Hex: [0123456789abcdef]
+     *      Term: [^ \0] *
+     *      End: \0
+     * </pre>
+     * @return true if a stream was parsed, otherwise false.
+     * @throws IOException
+     */
     private boolean tryParseStream() throws IOException {
-        int id = readHexValue(2);
-
-        // TODO: Consider changing chunk format to disallow multiple instances of a stream.
-        if (streams[id] != null) {
-            throw new IOException("ChunkDocument.tryParseStream(): encountered duplicate stream id.");
-        }
-
-        // Mark start of buffer.
-        int offset = writeCursor;
-
         int c = input.read();
         if (c == -1) {
+            // Document always ends with '\0', so we should never see EOF.
             throw new IOException("ChunkDocument.tryParseStream(): unexpected EOF.");
         }
         else if (c == 0) {
@@ -93,28 +116,52 @@ public class ChunkDocument implements Document {
             return false;
         }
         else {
+            input.unread(c);
+
+            // Each stream starts with a two-digit hex stream id, followed by '\0'.
+            int id = readHexValue(2);
+
+            // Move past '\0' that terminates the stream id.
+            // As the parser moves forward, the variable, prev, keeps track of the previous byte in
+            // order to detect the "End End" that delimits the end of a stream.
+            int prev = input.read();
+            if (prev != 0) {
+                throw new IOException("ChunkDocument.tryParseStream(): expected zero after stream id.");
+            }
+
+            // Verify that we haven't seen this stream id before.
+            // TODO: Consider changing chunk format to disallow multiple instances of a stream.
+            if (streams[id] != null) {
+                throw new IOException("ChunkDocument.tryParseStream(): encountered duplicate stream id.");
+            }
+
             // Append the contents of this stream to the end of the buffer.
-            int prev = -1;
-            buffer[writeCursor++] = (byte)c;
+            // Scan past bytes that match "(Term End)*" End where Term is a sequence of non-zero utf-8 bytes
+            // and End is the byte '\0'.
+
+            // Mark start of this stream in the buffer.
+            int offset = writeCursor;
+
+            c = input.read();
             while (true)
             {
-                c = input.read();
                 if (c == -1){
                     throw new IOException("ChunkDocument.tryParseStream(): unexpected EOF.");
                 }
-                else {
-                    buffer[writeCursor++] = (byte)c;
-                    if (prev == 0 && c == 0) {
-                        // We're at the end of the stream.
-                        int length = writeCursor - offset;
 
-                        // Make an entry in the streams table: id --> (offset, length)
-                        streams[id] = new Stream(offset, length);
+                buffer[writeCursor++] = (byte)c;
+                if (prev == 0 && c == 0) {
+                    // We're at the end of the stream.
+                    int length = writeCursor - offset;
 
-                        return true;
-                    }
-                    prev = c;
+                    // Make an entry in the streams table: id --> (offset, length)
+                    streams[id] = new Stream(offset, length);
+
+                    return true;
                 }
+
+                prev = c;
+                c = input.read();
             }
         }
     }
@@ -199,7 +246,7 @@ public class ChunkDocument implements Document {
     public Object content(int i) throws IOException {
         Stream stream = streams[i];
         if (stream == null) {
-            throw new IOException("ChunkDocument.content(): stream does not exist.");
+            throw new IOException(String.format("ChunkDocument.content(%d): stream does not exist.", i));
         }
         return stream.reader();
     }

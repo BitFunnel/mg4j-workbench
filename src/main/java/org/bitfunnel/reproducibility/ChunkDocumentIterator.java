@@ -2,15 +2,15 @@ package org.bitfunnel.reproducibility;
 
 import it.unimi.di.big.mg4j.document.Document;
 
-import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PushbackInputStream;
 
 public class ChunkDocumentIterator implements it.unimi.di.big.mg4j.document.DocumentIterator {
-    BufferedInputStream input;
+    PushbackInputStream input;
 
     public ChunkDocumentIterator(InputStream input) {
-        this.input = new BufferedInputStream(input);
+        this.input = new PushbackInputStream(input);
     }
 
 
@@ -18,8 +18,6 @@ public class ChunkDocumentIterator implements it.unimi.di.big.mg4j.document.Docu
     public Document nextDocument() throws IOException {
         System.out.println("ChunkDocumentSequence.nextDocument()");
 
-        // Mark the input stream so that we can peek at the next byte.
-        input.mark(2);
         int c = input.read();
         if (c == -1) {
             throw new IOException("ChunkDocumentIterator.nextDocument(): unexpected EOF.");
@@ -36,7 +34,7 @@ public class ChunkDocumentIterator implements it.unimi.di.big.mg4j.document.Docu
         else {
             // There's at least one more document left.
             // Position the stream at the beginning of the document.
-            input.reset();
+            input.unread(c);
             return new ChunkDocument(input);
         }
     }

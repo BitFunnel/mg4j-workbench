@@ -6,6 +6,7 @@ import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PushbackInputStream;
 
 public class ChunkDocumentFactory implements DocumentFactory {
     @Override
@@ -57,7 +58,7 @@ public class ChunkDocumentFactory implements DocumentFactory {
     @Override
     public Document getDocument(InputStream inputStream, Reference2ObjectMap<Enum<?>, Object> reference2ObjectMap) throws IOException {
         System.out.println("ChunkDocumentFactory.getDocument()");
-        return new ChunkDocument(inputStream);
+        return new ChunkDocument(new PushbackInputStream(inputStream));
     }
 
     @Override

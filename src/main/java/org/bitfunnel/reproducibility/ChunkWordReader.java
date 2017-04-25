@@ -17,6 +17,7 @@ public class ChunkWordReader implements WordReader {
             throw new IOException("ChunkWordReader.next(): no reader set.");
         }
         else if (atEOF) {
+            // A prior call consumed the last word.
             return false;
         }
         else {
