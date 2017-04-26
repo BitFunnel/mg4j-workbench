@@ -18,7 +18,7 @@ java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar \
 # Building mg4j index from chunk . . .
 java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar \
      it.unimi.di.big.mg4j.tool.IndexBuilder \
-     -o org.bitfunnel.reproducibility.ChunkDocumentSequence(~/dev/mg4j-tmp/out2.chunk) ^
+     -o org.bitfunnel.reproducibility.ChunkDocumentSequence\(~/dev/mg4j-tmp/out2.chunk\) \
      ~/dev/mg4j-tmp/out2Chunk
 
 ## Index build info
