@@ -1,6 +1,8 @@
 package org.bitfunnel.reproducibility;
 
 
+import com.martiansoftware.jsap.*;
+import it.unimi.di.big.mg4j.document.IdentityDocumentFactory;
 import it.unimi.di.big.mg4j.index.Index;
 import it.unimi.di.big.mg4j.index.TermProcessor;
 import it.unimi.di.big.mg4j.query.SelectedInterval;
@@ -9,6 +11,9 @@ import it.unimi.di.big.mg4j.query.parser.QueryParserException;
 import it.unimi.di.big.mg4j.query.parser.SimpleParser;
 import it.unimi.di.big.mg4j.search.DocumentIteratorBuilderVisitor;
 import it.unimi.di.big.mg4j.search.score.DocumentScoreInfo;
+import it.unimi.di.big.mg4j.tool.Scan;
+import it.unimi.di.big.mg4j.util.MG4JClassParser;
+import it.unimi.dsi.Util;
 import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
@@ -99,7 +104,7 @@ public class QueryLogRunner
 
         long startTimeNs = System.nanoTime();
 
-        System.out.println("Starting threads . . .");
+        System.out.println(String.format("Starting %d threads . . .", threadCount));
         for (int i = 0; i < threadCount; ++i) {
             System.out.println(String.format("  thread-%d", i));
             Thread thread = new Thread(new QueryProcessorThread(), String.format("thread-%d", i));
@@ -156,8 +161,18 @@ public class QueryLogRunner
     // TODO: add command-line argument for thread count.
     // TODO: use SimpleJSAP argument parser here.
     public static void main( String arg[] ) throws Exception {
-        QueryLogRunner runner = new QueryLogRunner(arg[0], arg[1]);
-        runner.go(8);
+        SimpleJSAP jsap = new SimpleJSAP( GenerateBitFunnelChunks.class.getName(), "Builds an index (creates batches, combines them, and builds a term map).",
+                new Parameter[] {
+                        new FlaggedOption( "threads", JSAP.INTSIZE_PARSER, "1", JSAP.NOT_REQUIRED, 't', "thread-count", "The number of query processing threads." ),
+                        new UnflaggedOption( "basename", JSAP.STRING_PARSER, JSAP.REQUIRED, "The index basename." ),
+                        new UnflaggedOption( "queries", JSAP.STRING_PARSER, JSAP.REQUIRED, "The query log file. One query per line." ),
+                });
+
+        JSAPResult jsapResult = jsap.parse( arg );
+        if ( !jsap.messagePrinted() ) {
+            QueryLogRunner runner = new QueryLogRunner(jsapResult.getString( "basename" ), jsapResult.getString( "queries" ));
+            runner.go(jsapResult.getInt( "threads" ));
+        }
     }
 
 
