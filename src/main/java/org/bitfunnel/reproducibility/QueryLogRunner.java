@@ -14,45 +14,56 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
 import org.apache.commons.configuration.ConfigurationException;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.concurrent.atomic.AtomicLong;
+
 
 public class QueryLogRunner
 {
     private final List<String> queries;
+    private int[] matchCounts;
+    private long[] timesInNS;
+    private boolean[] succeeded;
+
     private final Index text;
     private final Index title;
     private final Object2ReferenceOpenHashMap<String,Index> indexMap;
     private final Object2ReferenceOpenHashMap<String, TermProcessor> termProcessors;
 
-    private int[] matchCounts;
-    private long[] timesInNS;
-    private boolean[] succeeded;
-
     ThreadSynchronizer warmupSynchronizer;
-    AtomicInteger warmupQueriesRemaining;
+    AtomicInteger warmupQueriesRemaining = new AtomicInteger();
 
     ThreadSynchronizer performanceSynchronizer;
-    AtomicInteger performanceQueriesRemaining;
+    AtomicInteger performanceQueriesRemaining = new AtomicInteger();
 
-    AtomicBoolean queriesFailed;
+    ThreadSynchronizer finishSynchronizer;
 
-    ArrayList<Thread> threads;
+    AtomicBoolean queriesFailed = new AtomicBoolean();
+
+    AtomicLong firstStartTimeNs = new AtomicLong(Long.MAX_VALUE);
+    AtomicLong lastFinishTimeNs = new AtomicLong(Long.MIN_VALUE);
+
+
+    ArrayList<Thread> threads = new ArrayList<>(16);
 
 
     public QueryLogRunner(String basename, String queryLogFile) throws IllegalAccessException, InvocationTargetException, NoSuchMethodException, IOException, InstantiationException, URISyntaxException, ConfigurationException, ClassNotFoundException {
         // Load the query log.
-        queries = ReadLines(Paths.get(queryLogFile));
+        queries = LoadQueries(Paths.get(queryLogFile));
+        matchCounts = new int[queries.size()];
+        timesInNS = new long[queries.size()];
+        succeeded = new boolean[queries.size()];
 
         // Load and configure the index.
         text = Index.getInstance( basename + "-text", true, true );
@@ -62,18 +73,17 @@ public class QueryLogRunner
         termProcessors = new Object2ReferenceOpenHashMap<String,TermProcessor>(
                 new String[] { "text", "title" },
                 new TermProcessor[] { text.termProcessor, title.termProcessor } );;
-
-        queriesFailed.set(false);
     }
 
 
-    void go(int threadCount) {
+    void go(int threadCount) throws InterruptedException {
         // Clear out any values from an earlier run.
         for (int i = 0; i < queries.size(); ++i) {
             matchCounts[i] = 0;
             timesInNS[i] = 0;
             succeeded[i] = false;
         }
+        queriesFailed.set(false);
 
         // Set the number of queries for warmup and the test.
         // DESIGN NOTE: never use a value greater than queries.size().
@@ -85,14 +95,27 @@ public class QueryLogRunner
         warmupSynchronizer = new ThreadSynchronizer(threadCount);
         performanceSynchronizer = new ThreadSynchronizer(threadCount);
 
+        finishSynchronizer = new ThreadSynchronizer(threadCount);
+
+        long startTimeNs = System.nanoTime();
+
+        System.out.println("Starting threads . . .");
         for (int i = 0; i < threadCount; ++i) {
+            System.out.println(String.format("  thread-%d", i));
             Thread thread = new Thread(new QueryProcessorThread(), String.format("thread-%d", i));
             threads.add(thread);
             thread.start();
         }
 
-        // TODO: wait for last thread to exit.
-        // TODO: write out results to a file instead of the console.
+        // Wait for last thread to exit.
+        System.out.println("Waiting for threads . . .");
+        for(int i = 0; i < threads.size(); i++)
+            threads.get(i).join();
+
+        long finishTimeNs = System.nanoTime();
+
+        // TODO: write results to a file instead of the console.
+        int failedQueriesCount = 0;
         for (int i = 0; i < queries.size(); ++i) {
             if (succeeded[i]) {
                 System.out.println(
@@ -101,17 +124,65 @@ public class QueryLogRunner
                                 matchCounts[i],
                                 timesInNS[i] * 1e-9));
             } else {
+                ++failedQueriesCount;
                 System.out.println(
                         String.format("%s,FAILED,FAILED", queries.get(i)));
             }
         }
+
+        if (queriesFailed.get()) {
+            System.out.println(String.format("WARNING: %d queries failed to execute.",
+                                             failedQueriesCount));
+        }
+
+        // DESIGN NOTE: Measuring elapsed time three different ways to get a better understanding
+        // of how to measure the query processing time.
+        double elapsedTime = (lastFinishTimeNs.get() - firstStartTimeNs.get()) * 1e-9;
+        double elapsedTime2 = (finishSynchronizer.startTimeNs - performanceSynchronizer.startTimeNs) * 1e-9;
+        double elapsedTime3 = (finishTimeNs - startTimeNs) * 1e-9;
+
+        System.out.println();
+        System.out.println("====================================================");
+        System.out.println();
+        System.out.println(String.format("Thread count: %d", threadCount));
+        System.out.println(String.format("Query count: %d", queries.size()));
+        System.out.println(String.format("Total time: %f", elapsedTime));
+        System.out.println(String.format("Total time (synchronizer): %f", elapsedTime2));
+        System.out.println(String.format("Total time (simple): %f", elapsedTime3));
+        System.out.println(String.format("QPS: %f", queries.size() / elapsedTime2));
     }
 
 
-    public static List<String> ReadLines(Path file) throws IOException {
-        List<String> list = null;
-        Stream<String> lines = Files.lines(file);
-        return lines.collect(Collectors.toList());
+    // TODO: add command-line argument for thread count.
+    // TODO: use SimpleJSAP argument parser here.
+    public static void main( String arg[] ) throws Exception {
+        QueryLogRunner runner = new QueryLogRunner(arg[0], arg[1]);
+        runner.go(8);
+    }
+
+
+    public static List<String> LoadQueries(Path path) throws IOException {
+        ArrayList<String> list = new ArrayList<String>();
+
+        // DESIGN NOTE: For some reason, Files.lines() leads to the following exception
+        // when attempting to read 06.efficiency_topics.all:
+        //   java.nio.charset.MalformedInputException: Input length = 1
+        // Using slightly more complex code based on FileReader to avoid the exception.
+
+        File file = path.toFile();
+        FileReader fileReader = new FileReader(file);
+        BufferedReader bufferedReader = new BufferedReader(fileReader);
+        String line;
+        while ((line = bufferedReader.readLine()) != null) {
+            // Some characters are not allowed in mg4j queries.
+            // Replace these characters with spaces.
+            // TODO: Should remove this code once input files have been preprocessed.
+            // https://github.com/BitFunnel/mg4j-workbench/issues/15
+            list.add(line.replaceAll("[-;:'\\+]", ""));
+        }
+        fileReader.close();
+
+        return list;
     }
 
 
@@ -133,12 +204,20 @@ public class QueryLogRunner
         @Override
         public void run() {
             // Process all queries once to "warm up the system".
-            warmupSynchronizer.waitForAllThreadsReady();
-            processLog(warmupQueriesRemaining);
+            try {
+                warmupSynchronizer.waitForAllThreadsReady();
+                processLog(warmupQueriesRemaining);
 
-            // Record performance measurements on final run.
-            performanceSynchronizer.waitForAllThreadsReady();
-            processLog(performanceQueriesRemaining);
+                // Record performance measurements on final run.
+                performanceSynchronizer.waitForAllThreadsReady();
+                accumulateMin(firstStartTimeNs, System.nanoTime());
+                processLog(performanceQueriesRemaining);
+                accumulateMax(lastFinishTimeNs, System.nanoTime());
+
+                finishSynchronizer.waitForAllThreadsReady();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
 
 
@@ -150,10 +229,10 @@ public class QueryLogRunner
                     break;
                 }
 
-                int queryIndex = query % queries.size();
-                long start = System.nanoTime();
+                int queryIndex = queries.size() - (query % queries.size()) - 1;
 
                 try {
+                    long start = System.nanoTime();
                     results.clear();
                     engine.process(queries.get(queryIndex), 0, 1000000000, results);
 
@@ -174,6 +253,34 @@ public class QueryLogRunner
                 } catch (IOException e) {
                     succeeded[queryIndex] = false;
                     e.printStackTrace();
+                }
+            }
+        }
+
+
+        private void accumulateMax(AtomicLong accumulator, long newValue) {
+            while (true) {
+                long currentValue = accumulator.get();
+                if (currentValue >= newValue) {
+                    break;
+                }
+
+                if (accumulator.compareAndSet(currentValue, newValue)) {
+                    break;
+                }
+            }
+        }
+
+
+        private void accumulateMin(AtomicLong accumulator, long newValue) {
+            while (true) {
+                long currentValue = accumulator.get();
+                if (currentValue <= newValue) {
+                    break;
+                }
+
+                if (accumulator.compareAndSet(currentValue, newValue)) {
+                    break;
                 }
             }
         }

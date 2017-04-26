@@ -33,3 +33,8 @@ java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar ^
      org.bitfunnel.reproducibility.QueryPerformance ^
      d:\data\work\out2 d:\git\mg4j-workbench\data\small\queries10.txt
 
+echo Measuring query performance multithreaded . . .
+java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar ^
+     org.bitfunnel.reproducibility.QueryLogRunner ^
+     d:\data\work\out2 D:/git/mg4j-workbench/data/trec-terabyte/06.efficiency_topics.all
+
