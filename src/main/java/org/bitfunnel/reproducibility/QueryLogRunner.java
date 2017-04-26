@@ -174,11 +174,7 @@ public class QueryLogRunner
         BufferedReader bufferedReader = new BufferedReader(fileReader);
         String line;
         while ((line = bufferedReader.readLine()) != null) {
-            // Some characters are not allowed in mg4j queries.
-            // Replace these characters with spaces.
-            // TODO: Should remove this code once input files have been preprocessed.
-            // https://github.com/BitFunnel/mg4j-workbench/issues/15
-            list.add(line.replaceAll("[-;:'\\+]", ""));
+            list.add(line);
         }
         fileReader.close();
 
