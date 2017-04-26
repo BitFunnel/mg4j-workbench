@@ -31,4 +31,4 @@ cat ~/dev/mg4j-tmp/out2Chunk-title.properties
 # Measuring query performance multithreaded . . .
 java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar \
      org.bitfunnel.reproducibility.QueryLogRunner \
-     ~/dev/mg4j-tmp/out2 ~/dev/mg4j-workbench/data/trec-terabyte/06.efficiency_topics.all
+     ~/dev/mg4j-tmp/out2 ~/dev/mg4j-workbench/data/trec-terabyte/06.efficiency_topics.all ~/dev/mg4j-tmp/output.txt

@@ -18,13 +18,12 @@ import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
 import org.apache.commons.configuration.ConfigurationException;
+import org.apache.commons.io.output.FileWriterWithEncoding;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -81,7 +80,7 @@ public class QueryLogRunner
     }
 
 
-    void go(int threadCount) throws InterruptedException {
+    void go(int threadCount, Path outfilePath) throws InterruptedException, IOException {
         // Clear out any values from an earlier run.
         for (int i = 0; i < queries.size(); ++i) {
             matchCounts[i] = 0;
@@ -120,18 +119,31 @@ public class QueryLogRunner
         long finishTimeNs = System.nanoTime();
 
         // TODO: write results to a file instead of the console.
+
+
         int failedQueriesCount = 0;
-        for (int i = 0; i < queries.size(); ++i) {
-            if (succeeded[i]) {
-                System.out.println(
-                        String.format("%s,%d,%f",
-                                queries.get(i),
-                                matchCounts[i],
-                                timesInNS[i] * 1e-9));
-            } else {
-                ++failedQueriesCount;
-                System.out.println(
-                        String.format("%s,FAILED,FAILED", queries.get(i)));
+        File outFile = outfilePath.toFile();
+        BufferedWriter writer =  null;
+        try {
+            writer = new BufferedWriter(new FileWriterWithEncoding(outFile, StandardCharsets.UTF_8));
+
+            for (int i = 0; i < queries.size(); ++i) {
+                if (succeeded[i]) {
+                    writer.write(
+                            String.format("%s,%d,%f\n",
+                                    queries.get(i),
+                                    matchCounts[i],
+                                    timesInNS[i] * 1e-9));
+                } else {
+                    ++failedQueriesCount;
+                    writer.write(
+                            String.format("%s,FAILED,FAILED\n", queries.get(i)));
+                }
+            }
+        }
+        finally {
+            if (writer != null) {
+                writer.close();
             }
         }
 
@@ -166,12 +178,13 @@ public class QueryLogRunner
                         new FlaggedOption( "threads", JSAP.INTSIZE_PARSER, "1", JSAP.NOT_REQUIRED, 't', "thread-count", "The number of query processing threads." ),
                         new UnflaggedOption( "basename", JSAP.STRING_PARSER, JSAP.REQUIRED, "The index basename." ),
                         new UnflaggedOption( "queries", JSAP.STRING_PARSER, JSAP.REQUIRED, "The query log file. One query per line." ),
+                        new UnflaggedOption( "outfile", JSAP.STRING_PARSER, JSAP.REQUIRED, "The output file with match counts and timings for each query." ),
                 });
 
         JSAPResult jsapResult = jsap.parse( arg );
         if ( !jsap.messagePrinted() ) {
             QueryLogRunner runner = new QueryLogRunner(jsapResult.getString( "basename" ), jsapResult.getString( "queries" ));
-            runner.go(jsapResult.getInt( "threads" ));
+            runner.go(jsapResult.getInt( "threads" ), Paths.get(jsapResult.getString( "outfile" )));
         }
     }
 
