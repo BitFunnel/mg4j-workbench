@@ -28,11 +28,6 @@ type d:\data\work\out2Chunk-text.properties
 type d:\data\work\out2-title.properties
 type d:\data\work\out2Chunk-title.properties
 
-echo Measuring query performance . . .
-java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar ^
-     org.bitfunnel.reproducibility.QueryPerformance ^
-     d:\data\work\out2 d:\git\mg4j-workbench\data\small\queries10.txt
-
 echo Measuring query performance multithreaded . . .
 java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar ^
      org.bitfunnel.reproducibility.QueryLogRunner ^

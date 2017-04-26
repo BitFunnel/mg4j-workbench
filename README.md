@@ -72,7 +72,7 @@ TODO: Add document filter parameter.
 
 ~~~
 java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar \
-     org.bitfunnel.reproducibility.QueryPerformance \
-     <index base name> <query log>
+     org.bitfunnel.reproducibility.QueryLogRunner \
+     <index base name> <query log file>
 ~~~
 

@@ -28,12 +28,6 @@ cat ~/dev/mg4j-tmp/out2Chunk-text.properties
 cat ~/dev/mg4j-tmp/out2-title.properties
 cat ~/dev/mg4j-tmp/out2Chunk-title.properties
 
-# Measuring query performance . . .
-java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar \
-     org.bitfunnel.reproducibility.QueryPerformance \
-     ~/dev/mg4j-tmp/out2 ~/dev/mg4j-workbench/data/small/queries10.txt
-
-
 # Measuring query performance multithreaded . . .
 java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar \
      org.bitfunnel.reproducibility.QueryLogRunner \
