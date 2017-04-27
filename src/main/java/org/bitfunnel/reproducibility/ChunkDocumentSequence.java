@@ -19,12 +19,12 @@ public class ChunkDocumentSequence implements DocumentSequence{
      */
     public ChunkDocumentSequence(String file) throws FileNotFoundException {
         input = new FileInputStream(file);
-        System.out.println(String.format("ChunkDocumentSequence.ChunkDocumentSequence(%s)", file));
+        // System.out.println(String.format("ChunkDocumentSequence.ChunkDocumentSequence(%s)", file));
     }
 
     @Override
     public DocumentIterator iterator() throws IOException {
-        System.out.println("ChunkDocumentSequence.iterator()");
+        // System.out.println("ChunkDocumentSequence.iterator()");
         return new ChunkDocumentIterator(input);
     }
 
@@ -36,13 +36,13 @@ public class ChunkDocumentSequence implements DocumentSequence{
 
     @Override
     public void close() throws IOException {
-        System.out.println("ChunkDocumentSequence.close()");
+        // System.out.println("ChunkDocumentSequence.close()");
         input.close();
     }
 
     @Override
     public void filename(CharSequence charSequence) throws IOException {
-        System.out.println(String.format("ChunkDocumentSequence.filename(%s)", charSequence));
+        // System.out.println(String.format("ChunkDocumentSequence.filename(%s)", charSequence));
         // Intentional nop. See javadoc for filename() method of it.unimi.di.big.mg4j.document.DocumentSequence
         // for more information.
     }

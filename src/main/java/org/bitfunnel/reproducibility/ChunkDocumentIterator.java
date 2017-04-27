@@ -16,7 +16,7 @@ public class ChunkDocumentIterator implements it.unimi.di.big.mg4j.document.Docu
 
     @Override
     public Document nextDocument() throws IOException {
-        System.out.println("ChunkDocumentSequence.nextDocument()");
+        // System.out.println("ChunkDocumentSequence.nextDocument()");
 
         int c = input.read();
         if (c == -1) {
@@ -42,6 +42,6 @@ public class ChunkDocumentIterator implements it.unimi.di.big.mg4j.document.Docu
 
     @Override
     public void close() throws IOException {
-        System.out.println("ChunkDocumentIterator.close()");
+        // System.out.println("ChunkDocumentIterator.close()");
     }
 }

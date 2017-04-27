@@ -109,7 +109,7 @@ public class GenerateBitFunnelChunks {
                         // TODO: Don't hard-code fields.
                         for (int f = 0; f < 2; ++f)
                         {
-                            System.out.println("  Field: " + f);
+                            // System.out.println("  Field: " + f);
 
                             try (ChunkFile.StreamScope streamScope = chunk.new StreamScope(f)) {
                                 Object content = document.content(f);
@@ -120,13 +120,13 @@ public class GenerateBitFunnelChunks {
                                     String text = word.toString().toLowerCase();
 
                                     if (text.length() > 0) {
-                                        System.out.print("    ");
-                                        System.out.println(text);
+                                        // System.out.print("    ");
+                                        // System.out.println(text);
 
                                         chunk.emit(text);
                                     }
                                     else {
-                                        System.out.println("    Skipped zero-length word.");
+                                        // System.out.println("    Skipped zero-length word.");
                                     }
                                 }
                             }

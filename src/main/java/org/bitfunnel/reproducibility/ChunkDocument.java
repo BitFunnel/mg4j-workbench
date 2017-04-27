@@ -259,6 +259,6 @@ public class ChunkDocument implements Document {
 
     @Override
     public void close() throws IOException {
-        System.out.println("ChunkDocument.close()");
+        // System.out.println("ChunkDocument.close()");
     }
 }
