@@ -2,9 +2,18 @@ mvn package
 
 # Building collection . . .
 #     -f HtmlDocumentFactory -p encoding=iso-8859-1 ~/dev/mg4j-tmp/out2.collection ~/dev/gov2/GX000/00.txt
-java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar \
+
+# java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar \
+#      it.unimi.di.big.mg4j.document.TRECDocumentCollection \
+#      -f HtmlDocumentFactory -p encoding=iso-8859-1 ~/dev/mg4j-tmp/out2.collection -z ~/dev/gov2/GX000.tar.gz
+
+# find ~/dev/gov2 -name *.gz  | java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar \
+#      it.unimi.di.big.mg4j.document.TRECDocumentCollection \
+#      -f HtmlDocumentFactory -p encoding=iso-8859-1 ~/dev/mg4j-tmp/out2.collection -z
+
+find ~/dev/gov2 -name *.gz  | java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar \
      it.unimi.di.big.mg4j.document.TRECDocumentCollection \
-     -f HtmlDocumentFactory -p encoding=iso-8859-1 ~/dev/mg4j-tmp/out2.collection -z ~/dev/gov2/GX000.tar.gz
+     -f HtmlDocumentFactory -p encoding=iso-8859-1 ~/dev/mg4j-tmp/out2.collection ~/dev/gov2/GX000/00.txt
 
 # Building BitFunnel chunk files
 java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar \
