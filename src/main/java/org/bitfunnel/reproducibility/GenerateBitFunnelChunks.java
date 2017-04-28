@@ -102,14 +102,14 @@ public class GenerateBitFunnelChunks {
             try (ChunkFile.FileScope fileScope = chunk.new FileScope()) {
                 int documentId = 0;
                 while ((document = documentIterator.nextDocument()) != null) {
-                    System.out.println(document.title());
+                    // System.out.println(String.format("%s", document.title()));
 
                     try (ChunkFile.DocumentScope documentScope = chunk.new DocumentScope(documentId)) {
 
                         // TODO: Don't hard-code fields.
                         for (int f = 0; f < 2; ++f)
                         {
-                            // System.out.println("  Field: " + f);
+                            // System.out.println(String.format("  Field: %d", f));
 
                             try (ChunkFile.StreamScope streamScope = chunk.new StreamScope(f)) {
                                 Object content = document.content(f);
@@ -120,13 +120,12 @@ public class GenerateBitFunnelChunks {
                                     String text = word.toString().toLowerCase();
 
                                     if (text.length() > 0) {
-                                        // System.out.print("    ");
-                                        // System.out.println(text);
+                                        // System.out.println(String.format("    %s", text));
 
                                         chunk.emit(text);
                                     }
                                     else {
-                                        // System.out.println("    Skipped zero-length word.");
+                                        // System.out.println("    (Skipped zero-length word.)");
                                     }
                                 }
                             }

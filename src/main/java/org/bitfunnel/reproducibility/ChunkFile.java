@@ -5,7 +5,6 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 
 public class ChunkFile {
-
     OutputStream outputStream;
 
     public ChunkFile(OutputStream outputStream)
