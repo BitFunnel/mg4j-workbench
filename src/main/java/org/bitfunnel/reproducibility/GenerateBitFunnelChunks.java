@@ -84,59 +84,54 @@ public class GenerateBitFunnelChunks {
         // TODO: put following code in run() method.
 
         Path chunkFile = Paths.get(jsapResult.getString( "chunkFile" ));
-        if (Files.exists(chunkFile)) {
-            System.out.println("Error: chunk file " + chunkFile.getFileName() + " already exists.");
-        }
-        else {
-            Files.createDirectories(chunkFile.getParent());
-            OutputStream outputStream = Files.newOutputStream(chunkFile);
-            ChunkFile chunk = new ChunkFile(outputStream);
+        Files.createDirectories(chunkFile.getParent());
+        OutputStream outputStream = Files.newOutputStream(chunkFile);
+        ChunkFile chunk = new ChunkFile(outputStream);
 
-            DocumentIterator documentIterator = documentSequence.iterator();
-            Document document;
-            Reader reader;
-            WordReader wordReader;
-            final MutableString word = new MutableString(), nonWord = new MutableString();
+        DocumentIterator documentIterator = documentSequence.iterator();
+        Document document;
+        Reader reader;
+        WordReader wordReader;
+        final MutableString word = new MutableString(), nonWord = new MutableString();
 
-            // Scaffolding to demonstrate iteration over documents, fields, and terms.
-            try (ChunkFile.FileScope fileScope = chunk.new FileScope()) {
-                int documentId = 0;
-                while ((document = documentIterator.nextDocument()) != null) {
-                    // System.out.println(String.format("%s", document.title()));
+        // Scaffolding to demonstrate iteration over documents, fields, and terms.
+        try (ChunkFile.FileScope fileScope = chunk.new FileScope()) {
+            int documentId = 0;
+            while ((document = documentIterator.nextDocument()) != null) {
+                // System.out.println(String.format("%s", document.title()));
 
-                    try (ChunkFile.DocumentScope documentScope = chunk.new DocumentScope(documentId)) {
+                try (ChunkFile.DocumentScope documentScope = chunk.new DocumentScope(documentId)) {
 
-                        // TODO: Don't hard-code fields.
-                        for (int f = 0; f < 2; ++f)
-                        {
-                            // System.out.println(String.format("  Field: %d", f));
+                    // TODO: Don't hard-code fields.
+                    for (int f = 0; f < 2; ++f)
+                    {
+                        // System.out.println(String.format("  Field: %d", f));
 
-                            try (ChunkFile.StreamScope streamScope = chunk.new StreamScope(f)) {
-                                Object content = document.content(f);
-                                reader = (Reader) content;
-                                wordReader = document.wordReader(f);
-                                wordReader.setReader(reader);
-                                while (wordReader.next(word, nonWord)) {
-                                    String text = word.toString().toLowerCase();
+                        try (ChunkFile.StreamScope streamScope = chunk.new StreamScope(f)) {
+                            Object content = document.content(f);
+                            reader = (Reader) content;
+                            wordReader = document.wordReader(f);
+                            wordReader.setReader(reader);
+                            while (wordReader.next(word, nonWord)) {
+                                String text = word.toString().toLowerCase();
 
-                                    if (text.length() > 0) {
-                                        // System.out.println(String.format("    %s", text));
+                                if (text.length() > 0) {
+                                    // System.out.println(String.format("    %s", text));
 
-                                        chunk.emit(text);
-                                    }
-                                    else {
-                                        // System.out.println("    (Skipped zero-length word.)");
-                                    }
+                                    chunk.emit(text);
+                                }
+                                else {
+                                    // System.out.println("    (Skipped zero-length word.)");
                                 }
                             }
                         }
                     }
-
-                    ++documentId;
                 }
-            }
 
-            outputStream.close();
+                ++documentId;
+            }
         }
+
+        outputStream.close();
     }
 }
