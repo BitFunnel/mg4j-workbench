@@ -2,7 +2,6 @@ package org.bitfunnel.reproducibility;
 
 
 import com.martiansoftware.jsap.*;
-import it.unimi.di.big.mg4j.document.IdentityDocumentFactory;
 import it.unimi.di.big.mg4j.index.Index;
 import it.unimi.di.big.mg4j.index.TermProcessor;
 import it.unimi.di.big.mg4j.query.SelectedInterval;
@@ -11,9 +10,6 @@ import it.unimi.di.big.mg4j.query.parser.QueryParserException;
 import it.unimi.di.big.mg4j.query.parser.SimpleParser;
 import it.unimi.di.big.mg4j.search.DocumentIteratorBuilderVisitor;
 import it.unimi.di.big.mg4j.search.score.DocumentScoreInfo;
-import it.unimi.di.big.mg4j.tool.Scan;
-import it.unimi.di.big.mg4j.util.MG4JClassParser;
-import it.unimi.dsi.Util;
 import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
@@ -70,8 +66,11 @@ public class QueryLogRunner
         succeeded = new boolean[queries.size()];
 
         // Load and configure the index.
-        text = Index.getInstance( basename + "-text", true, true );
-        title = Index.getInstance( basename + "-title", true, true );
+        text = Index.getInstance( basename, true, true );
+        title = Index.getInstance( basename, true, true );
+//        text = Index.getInstance( basename + "-text?inmemory=1", true, true );
+//        title = Index.getInstance( basename + "-title?inmemory=1", true, true );
+
         indexMap = new Object2ReferenceOpenHashMap<String,Index>(
                 new String[] { "text", "title" }, new Index[] { text, title } );
         termProcessors = new Object2ReferenceOpenHashMap<String,TermProcessor>(
@@ -170,8 +169,6 @@ public class QueryLogRunner
     }
 
 
-    // TODO: add command-line argument for thread count.
-    // TODO: use SimpleJSAP argument parser here.
     public static void main( String arg[] ) throws Exception {
         SimpleJSAP jsap = new SimpleJSAP( GenerateBitFunnelChunks.class.getName(), "Builds an index (creates batches, combines them, and builds a term map).",
                 new Parameter[] {
