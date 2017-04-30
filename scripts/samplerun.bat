@@ -33,3 +33,7 @@ java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar ^
      org.bitfunnel.reproducibility.QueryLogRunner ^
      d:\data\work\out2 D:/git/mg4j-workbench/data/trec-terabyte/06.efficiency_topics.all d:\data\work\output.txt
 
+echo Exporting a Partitioned Elias-Fano index . . .
+java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar ^
+     org.bitfunnel.reproducibility.IndexExporter ^
+     d:\data\junk\work\out2 d:\temp\export --index --queries  D:/git/mg4j-workbench/data/small/queries10.txt

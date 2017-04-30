@@ -73,6 +73,28 @@ TODO: Add document filter parameter.
 ~~~
 java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar \
      org.bitfunnel.reproducibility.QueryLogRunner \
-     <index base name> <query log file>
+     <index base name> <query log file> <output file> [-t threadCount]
 ~~~
 
+## Exporting a Partitioned Elias-Fano Index
+
+It is possible to export the mg4j index in a format usable by the
+[Partitioned Elias-Fano Index](https://github.com/BitFunnel/partitioned_elias_fano) project.
+The optional `--index` flag exports the index. The option `--queries` flag converts a
+query log file for consumption by the Partitioned Elias-Fano Index. Two query files are
+generated. The first has queries whose terms have been replaced by their integer term id values.
+Queries with terms that are not in the index (and therefor don't have term id values) are
+filtered out. The second query file has the plain text queries corresponding to those in the
+file of term id queries.
+
+~~~
+java -cp target/mg4j-1.0-SNAPSHOT-jar-with-dependencies.jar \
+     org.bitfunnel.reproducibility.IndexExporter \
+     <index base name> <output base name> [--index] [--queries <query log file>]
+~~~
+
+## Filtering Query Logs
+Note that one can use the `IndexExporter`, described in the previous section, to
+generate a filtered query log that contains only those queries whose terms all
+appear in the index. Just include the `--queries` parameter and remove the `--index`
+parameter.

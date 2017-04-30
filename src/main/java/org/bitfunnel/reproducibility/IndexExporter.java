@@ -15,17 +15,17 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
 import it.unimi.dsi.lang.MutableString;
 import org.apache.commons.configuration.ConfigurationException;
+import org.apache.commons.io.output.FileWriterWithEncoding;
 
 import java.io.*;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.channels.WritableByteChannel;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+
 
 public class IndexExporter {
     private final Index text;
@@ -73,7 +73,7 @@ public class IndexExporter {
             throw new IOException("IndexExporter.go(): Document index out of range.");
         }
 
-        System.out.println(String.format("Document count: {%x}", text.numberOfDocuments));
+        System.out.println(String.format("Converting %d documents.", text.numberOfDocuments));
         docsStream.putInt(1);
         docsStream.putInt((int)text.numberOfDocuments);
 
@@ -82,15 +82,11 @@ public class IndexExporter {
 
             engine.process(term, 0, 1000000000, results);
 
-            System.out.println(String.format("%s (%x)", term, results.size()));
-
             docsStream.putInt(results.size());
             freqsStream.putInt(results.size());
 
-            //DocumentScoreInfo<Reference2ObjectMap<Index, SelectedInterval[]>> r = results.get(0);
             int counter = 0;
             for (DocumentScoreInfo<Reference2ObjectMap<Index, SelectedInterval[]>> r : results) {
-                System.out.println(String.format("  %x: %x", counter, r.document));
                 docsStream.putInt((int)r.document);
 
                 // DESIGN NOTE: For now, generate a placeholder frequencies file that represents
@@ -108,28 +104,59 @@ public class IndexExporter {
     }
 
 
-    void convertQueryLog(Path queryLog) throws IOException {
-        List<String> queries = LoadQueries(queryLog);
+    void convertQueryLog(Path queryLog, Path outputBaseName) throws IOException {
+        List<String> queries = ReadQueries(queryLog);
 
-        // TODO: Filter log to exclude queries with null terms.
-        // TODO: Two output streams, one for converted queries and one for the filtered log.
+        //
+        // Filter out queries that contain terms not in index, then convert
+        // terms in remaining queries to corresponding ints.
+        //
+
+        List<String> filteredQueries = new ArrayList<String>(queries.size());
+        List<String> filteredIntQueries = new ArrayList<String>(queries.size());
 
         for (String query : queries) {
             String[] terms = query.split(" ");
             MutableString converted = new MutableString();
+            Boolean allTermsInIndex = true;
             for (String term : terms) {
-                System.out.println(String.format("  \"%s\"", term));
+                Object termId = text.termMap.get(term);
+                if (termId == null){
+                    allTermsInIndex = false;
+                    break;
+                }
+
                 if (converted.length() > 0) {
                     converted.append(' ');
                 }
-                converted.append(text.termMap.get(term));
+                converted.append(termId);
             }
-            System.out.println(String.format("\"%s\" ==> \"%s\"", query, converted));
+
+            if (allTermsInIndex) {
+                filteredQueries.add(query);
+                filteredIntQueries.add(converted.toString());
+            }
         }
+
+        //
+        // Write filtered and converted query logs to files.
+        //
+
+        String filteredFile = outputBaseName + "-filtered.txt";
+        System.out.println(String.format("Writing filtered queries to \"%s\"", filteredFile));
+        WriteQueries(filteredQueries, Paths.get(filteredFile));
+
+        String filteredIntFile = outputBaseName + "-filtered-ints.txt";
+        System.out.println(String.format("Writing filtered int queries to \"%s\"", filteredIntFile));
+        WriteQueries(filteredIntQueries, Paths.get(filteredIntFile));
+
+        System.out.println(String.format("Input query count: %d", queries.size()));
+        System.out.println(String.format("Filtered query count: %d", filteredQueries.size()));
+        System.out.println(String.format("Retained %2.1f%% of queries.", (double)filteredQueries.size() / (double)queries.size() * 100.0));
     }
 
 
-    public static List<String> LoadQueries(Path path) throws IOException {
+    public static List<String> ReadQueries(Path path) throws IOException {
         ArrayList<String> list = new ArrayList<String>();
 
         // DESIGN NOTE: For some reason, Files.lines() leads to the following exception
@@ -150,6 +177,25 @@ public class IndexExporter {
     }
 
 
+    public static void WriteQueries(List<String> queries, Path path) throws IOException {
+        File outFile = path.toFile();
+        BufferedWriter writer =  null;
+        try {
+            writer = new BufferedWriter(new FileWriterWithEncoding(outFile, StandardCharsets.UTF_8));
+
+            for (int i = 0; i < queries.size(); ++i) {
+                writer.write(queries.get(i));
+                writer.newLine();
+            }
+        }
+        finally {
+            if (writer != null) {
+                writer.close();
+            }
+        }
+    }
+
+
     public static void main( String arg[] ) throws Exception {
         SimpleJSAP jsap = new SimpleJSAP( IndexExporter.class.getName(),
                 "Exports an mg4j index in a format suitable for creating a Partitioned Elias-Fano index.",
@@ -167,16 +213,20 @@ public class IndexExporter {
 
                 // Export index if requested.
                 if (jsapResult.getBoolean("index")) {
-                    System.out.println(String.format("Export index %s to %s.",
+                    System.out.println();
+                    System.out.println(String.format("Exporting index file \"%s\" to basename \"%s\".",
                             jsapResult.getString("inbasename"),
                             jsapResult.getString("outbasename")));
-                    // TODO: Restore next line
-//                    exporter.exportIndex(Paths.get(jsapResult.getString( "outbasename" )));
+                    exporter.exportIndex(Paths.get(jsapResult.getString( "outbasename" )));
                 }
 
                 if (jsapResult.userSpecified("queries")) {
-                    System.out.println(String.format("Convert query file %s.", jsapResult.getString("queries")));
-                    exporter.convertQueryLog(Paths.get(jsapResult.getString( "queries" )));
+                    System.out.println();
+                    System.out.println(String.format("Converting query file \"%s\" to basename \"%s\".",
+                            jsapResult.getString("queries"),
+                            jsapResult.getString( "outbasename" )));
+                    exporter.convertQueryLog(Paths.get(jsapResult.getString( "queries" )),
+                                             Paths.get(jsapResult.getString( "outbasename" )));
                 }
             }
             else {
