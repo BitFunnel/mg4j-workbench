@@ -66,8 +66,8 @@ public class QueryLogRunner
         succeeded = new boolean[queries.size()];
 
         // Load and configure the index.
-        text = Index.getInstance( basename, true, true );
-        title = Index.getInstance( basename, true, true );
+        text = Index.getInstance( basename + "-text", true, true );
+        title = Index.getInstance( basename + "-title", true, true );
 //        text = Index.getInstance( basename + "-text?inmemory=1", true, true );
 //        title = Index.getInstance( basename + "-title?inmemory=1", true, true );
 
