@@ -158,7 +158,7 @@ public class IndexExporter {
 
         System.out.println(String.format("Input query count: %d", queries.size()));
         System.out.println(String.format("Filtered query count: %d", filteredQueries.size()));
-        System.out.println(String.format("Retained %2.1f%% of queries.", (double)filteredQueries.size() / (double)queries.size() * 100.0));
+        System.out.println(String.format("Retained %2.1f%% of queries.", 1.0 - (double)filteredQueries.size() / (double)queries.size() * 100.0));
     }
 
 
