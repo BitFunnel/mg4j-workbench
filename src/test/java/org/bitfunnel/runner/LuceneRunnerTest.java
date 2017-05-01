@@ -48,7 +48,6 @@ public class LuceneRunnerTest
         corpus.process(processor);
         writer.commit();
 
-
         // Now search the index:
         DirectoryReader ireader = DirectoryReader.open(dir);
         IndexSearcher isearcher = new IndexSearcher(ireader);

@@ -10,6 +10,7 @@ import org.apache.lucene.store.RAMDirectory;
 
 import java.io.*;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -19,6 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
 class LuceneRunner {
+
 public static void main(String[] args) throws IOException, InterruptedException {
     if (args.length != 3) {
         System.out.println("Usage: [manifest] [query log] [num threads]");
@@ -26,6 +28,9 @@ public static void main(String[] args) throws IOException, InterruptedException 
     }
 
     String manifestFilename = args[0];
+
+    String queryFilename = args[1];
+    String[] queryLog = getLinesFromFile(queryFilename);
 
     // Lucene setup.
     // We use MMapDirectory instead of RAMDirectory because Lucene documentation recommends MMapDirectory for better
@@ -45,11 +50,9 @@ public static void main(String[] args) throws IOException, InterruptedException 
     // Now search the index:
     DirectoryReader ireader = null;
     ireader = DirectoryReader.open(dir);
+    System.out.println("numDocs " + ireader.numDocs());
 
     IndexSearcher isearcher = new IndexSearcher(ireader);
-
-    String queryFilename = args[1];
-    String[] queryLog = getLinesFromFile(queryFilename);
 
     // Measure execution latencies. Note that this methodology is not sufficient for measuring "real" tail latency.
     // Also note that throughput measurements for the paper were done with individual query measurement turned off, although the overhead should be low.
@@ -193,7 +196,11 @@ public static void main(String[] args) throws IOException, InterruptedException 
     private static String[] getLinesFromFile(String manifestFilename) throws IOException {
         Path filepath = new File(manifestFilename).toPath();
         List<String> stringList;
-        stringList= Files.readAllLines(filepath);
+        // WARNING: We use ISO_8859_1 because the TREC efficiency topics query log seems to ASCII or something similar.
+        // In general, the chunk files we read can be arbitrary UTF-8. This may cause some queries to return fewer terms
+        // than they should. Because this is being used as a baseline and this problem should only cause Lucene
+        // performance to be higher than it should be, this seems acceptable.
+        stringList= Files.readAllLines(filepath, StandardCharsets.ISO_8859_1);
         String[] stringArray = stringList.toArray(new String[]{});
         return stringArray;
     }
