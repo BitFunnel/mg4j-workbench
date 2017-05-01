@@ -60,10 +60,10 @@ public class IndexExporter {
 
 
     void exportIndex(Path basename) throws QueryParserException, QueryBuilderVisitorException, IOException {
-        FileOutputStream docsFile = new FileOutputStream(basename + "-docs.bin");
+        FileOutputStream docsFile = new FileOutputStream(basename + ".docs");
         LittleEndianIntStream docsStream = new LittleEndianIntStream(docsFile);
 
-        FileOutputStream freqsFile = new FileOutputStream(basename + "-freqs.bin");
+        FileOutputStream freqsFile = new FileOutputStream(basename + ".freqs");
         LittleEndianIntStream freqsStream = new LittleEndianIntStream(freqsFile);
 
         // Ensure we are safe casting the number of documents and posting list lengths to int.
@@ -74,10 +74,16 @@ public class IndexExporter {
         }
 
         System.out.println(String.format("Converting %d documents.", text.numberOfDocuments));
+        System.out.println(String.format("Term count: %d", text.termMap.size()));
         docsStream.putInt(1);
         docsStream.putInt((int)text.numberOfDocuments);
 
-        for (int i = 0 ; i < 10; ++i) {
+        for (int i = 0 ; i < text.termMap.size(); ++i) {
+            if (i % 10000 == 0)
+            {
+                System.out.println(String.format("  term %d", i));
+            }
+
             String term = text.termMap.list().get(i).toString();
 
             engine.process(term, 0, 1000000000, results);
