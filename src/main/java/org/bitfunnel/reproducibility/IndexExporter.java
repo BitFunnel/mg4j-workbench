@@ -110,7 +110,7 @@ public class IndexExporter {
     }
 
 
-    void convertQueryLog(Path queryLog, Path outputBaseName) throws IOException {
+    void convertQueryLog(Path queryLog, Path indexBaseName) throws IOException {
         List<String> queries = ReadQueries(queryLog);
 
         //
@@ -147,12 +147,22 @@ public class IndexExporter {
         //
         // Write filtered and converted query logs to files.
         //
+        Path indexDirName = indexBaseName.getParent();
+        if (indexDirName == null) {
+            indexDirName = Paths.get("");
+        }
 
-        String filteredFile = outputBaseName + "-filtered.txt";
+        String queryFileBase = queryLog.getFileName().toString();
+        if (queryFileBase.endsWith(".txt")) {
+            queryFileBase = queryFileBase.substring(0, queryFileBase.lastIndexOf(".txt"));
+        }
+        Path queryBaseName = indexDirName.resolve(queryFileBase);
+
+        String filteredFile = queryBaseName + "-filtered.txt";
         System.out.println(String.format("Writing filtered queries to \"%s\"", filteredFile));
         WriteQueries(filteredQueries, Paths.get(filteredFile));
 
-        String filteredIntFile = outputBaseName + "-filtered-ints.txt";
+        String filteredIntFile = queryBaseName + "-filtered-ints.txt";
         System.out.println(String.format("Writing filtered int queries to \"%s\"", filteredIntFile));
         WriteQueries(filteredIntQueries, Paths.get(filteredIntFile));
 
@@ -228,7 +238,7 @@ public class IndexExporter {
 
                 if (jsapResult.userSpecified("queries")) {
                     System.out.println();
-                    System.out.println(String.format("Converting query file \"%s\" to basename \"%s\".",
+                    System.out.println(String.format("Converting query files \"%s\" for basename \"%s\".",
                             jsapResult.getString("queries"),
                             jsapResult.getString( "outbasename" )));
                     exporter.convertQueryLog(Paths.get(jsapResult.getString( "queries" )),
