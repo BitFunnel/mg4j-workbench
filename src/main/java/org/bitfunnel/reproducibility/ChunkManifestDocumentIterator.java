@@ -47,6 +47,7 @@ public class ChunkManifestDocumentIterator implements DocumentIterator {
             // or we just closed an empty iterator. Either way, open up the next iterator and
             // go back to the top of the loop.
             if (current < chunkFiles.length) {
+                System.out.println(String.format("======>>>> Opening chunk %s", chunkFiles[current]));
                 sequence = new ChunkDocumentSequence(chunkFiles[current++]);
                 iterator = sequence.iterator();
             }

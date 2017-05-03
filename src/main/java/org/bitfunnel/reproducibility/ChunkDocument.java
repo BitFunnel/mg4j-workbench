@@ -18,7 +18,7 @@ public class ChunkDocument implements Document {
     // buffer holds UTF-8 content of all document streams.
     // Assumes that all documents are truncated at 256kb.
     // http://ir.dcs.gla.ac.uk/test_collections/gov2-summary.htm
-    private static final int BUFFER_SIZE = 256 * 1024;
+    private static final int BUFFER_SIZE = 1024 * 1024;
     private byte buffer[] = new byte[BUFFER_SIZE];
 
     // Index into buffer where next byte will be written.
@@ -48,7 +48,6 @@ public class ChunkDocument implements Document {
     // Mapping from stream id to (offset, length) of stream's backing data in buffer.
     Stream streams[] = new Stream[STREAM_COUNT];
 
-
     // TODO: Decide how this class throws parse errors.
     public ChunkDocument(PushbackInputStream input) throws IOException
     {
@@ -58,7 +57,11 @@ public class ChunkDocument implements Document {
         parseHeader();
 
         // Parse each of the document's streams.
-        while (tryParseStream());
+        while (tryParseStream()) {
+            if (writeCursor >= 256 *1024) {
+                System.out.println(String.format("======>>>> WARNING cursor: %d", writeCursor));
+            }
+        }
     }
 
 
