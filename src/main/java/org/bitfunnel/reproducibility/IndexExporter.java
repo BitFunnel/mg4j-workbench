@@ -59,7 +59,7 @@ public class IndexExporter {
     }
 
 
-    void exportIndex(Path basename) throws QueryParserException, QueryBuilderVisitorException, IOException {
+    public void exportIndex(Path basename) throws QueryParserException, QueryBuilderVisitorException, IOException {
         FileOutputStream docsFile = new FileOutputStream(basename + ".docs");
         LittleEndianIntStream docsStream = new LittleEndianIntStream(docsFile);
 
@@ -110,43 +110,9 @@ public class IndexExporter {
     }
 
 
-    void convertQueryLog(Path queryLog, Path indexBaseName) throws IOException {
+    public void convertQueryLog(Path queryLog, Path indexBaseName) throws IOException, QueryParserException, QueryBuilderVisitorException {
         List<String> queries = ReadQueries(queryLog);
 
-        //
-        // Filter out queries that contain terms not in index, then convert
-        // terms in remaining queries to corresponding ints.
-        //
-
-        List<String> filteredQueries = new ArrayList<String>(queries.size());
-        List<String> filteredIntQueries = new ArrayList<String>(queries.size());
-
-        for (String query : queries) {
-            String[] terms = query.split(" ");
-            MutableString converted = new MutableString();
-            Boolean allTermsInIndex = true;
-            for (String term : terms) {
-                Object termId = text.termMap.get(term);
-                if (termId == null){
-                    allTermsInIndex = false;
-                    break;
-                }
-
-                if (converted.length() > 0) {
-                    converted.append(' ');
-                }
-                converted.append(termId);
-            }
-
-            if (allTermsInIndex) {
-                filteredQueries.add(query);
-                filteredIntQueries.add(converted.toString());
-            }
-        }
-
-        //
-        // Write filtered and converted query logs to files.
-        //
         Path indexDirName = indexBaseName.getParent();
         if (indexDirName == null) {
             indexDirName = Paths.get("");
@@ -158,21 +124,101 @@ public class IndexExporter {
         }
         Path queryBaseName = indexDirName.resolve(queryFileBase);
 
-        String filteredFile = queryBaseName + "-filtered.txt";
-        System.out.println(String.format("Writing filtered queries to \"%s\"", filteredFile));
-        WriteQueries(filteredQueries, Paths.get(filteredFile));
-
-        String filteredIntFile = queryBaseName + "-filtered-ints.txt";
-        System.out.println(String.format("Writing filtered int queries to \"%s\"", filteredIntFile));
-        WriteQueries(filteredIntQueries, Paths.get(filteredIntFile));
-
-        System.out.println(String.format("Input query count: %d", queries.size()));
-        System.out.println(String.format("Filtered query count: %d", filteredQueries.size()));
-        System.out.println(String.format("Retained %2.1f%% of queries.", (double)filteredQueries.size() / (double)queries.size() * 100.0));
+        removeIfTermsNotInIndex(queries, queryBaseName);
+        removeIfZeroMatches(queries, queryBaseName);
     }
 
 
-    public static List<String> ReadQueries(Path path) throws IOException {
+    private void removeIfTermsNotInIndex(List<String> queries, Path queryBaseName) throws IOException {
+        //
+        // Filter out queries that contain terms not in index, then convert
+        // terms in remaining queries to corresponding ints.
+        //
+        ArrayList<String> filteredQueries = new ArrayList<String>(queries.size());
+        ArrayList<String> filteredIntQueries = new ArrayList<String>(queries.size());
+
+        for (String query : queries) {
+            String intQuery = makeIntQuery(query);
+
+            if (intQuery != null) {
+                filteredQueries.add(query);
+                filteredIntQueries.add(intQuery);
+            }
+        }
+
+        String filteredFile = queryBaseName + "-in-index.txt";
+        System.out.println(String.format("Writing filtered queries to \"%s\"", filteredFile));
+        WriteQueries(filteredQueries, Paths.get(filteredFile));
+
+        String filteredIntFile = queryBaseName + "-in-index-ints.txt";
+        System.out.println(String.format("Writing filtered int queries to \"%s\"", filteredIntFile));
+        WriteQueries(filteredIntQueries, Paths.get(filteredIntFile));
+
+        System.out.println(String.format("Removed queries with terms not in index", queries.size()));
+        System.out.println(String.format("  Input query count: %d", queries.size()));
+        System.out.println(String.format("  Filtered query count: %d", filteredQueries.size()));
+        System.out.println(String.format("  Retained %2.1f%% of queries.",
+                (double)filteredQueries.size() / (double)queries.size() * 100.0));
+    }
+
+
+    private void removeIfZeroMatches(List<String> queries, Path queryBaseName) throws IOException, QueryParserException, QueryBuilderVisitorException {
+        //
+        // Filter out queries with zero matches, then convert
+        // terms in remaining queries to corresponding ints.
+        //
+        ArrayList<String> filteredQueries = new ArrayList<String>(queries.size());
+        ArrayList<String> filteredIntQueries = new ArrayList<String>(queries.size());
+
+        for (String query : queries) {
+            engine.process(query, 0, 1000000000, results);
+            if (results.size() > 0) {
+                filteredQueries.add(query);
+                String intQuery = makeIntQuery(query);
+                if (intQuery == null) {
+                    System.out.println(String.format("Query \"%s\" has term not in index. Count = %d", query, results.size()));
+                }
+                filteredIntQueries.add(intQuery);
+            }
+        }
+
+        String filteredFile = queryBaseName + "-has-matches.txt";
+        System.out.println(String.format("Writing filtered queries to \"%s\"", filteredFile));
+        WriteQueries(filteredQueries, Paths.get(filteredFile));
+
+        String filteredIntFile = queryBaseName + "-in-index-ints.txt";
+        System.out.println(String.format("Writing filtered int queries to \"%s\"", filteredIntFile));
+        WriteQueries(filteredIntQueries, Paths.get(filteredIntFile));
+
+        System.out.println(String.format("Removed queries with zero matches.", queries.size()));
+        System.out.println(String.format("  Input query count: %d", queries.size()));
+        System.out.println(String.format("  Filtered query count: %d", filteredQueries.size()));
+        System.out.println(String.format("  Retained %2.1f%% of queries.",
+                (double)filteredQueries.size() / (double)queries.size() * 100.0));
+    }
+
+
+    private String makeIntQuery(String query) {
+        String[] terms = query.split(" ");
+        MutableString converted = new MutableString();
+        Boolean allTermsInIndex = true;
+        for (String term : terms) {
+            Object termId = text.termMap.get(term);
+            if (termId == null){
+                return null;
+            }
+
+            if (converted.length() > 0) {
+                converted.append(' ');
+            }
+            converted.append(termId);
+        }
+
+        return converted.toString();
+    }
+
+
+    private static List<String> ReadQueries(Path path) throws IOException {
         ArrayList<String> list = new ArrayList<String>();
 
         // DESIGN NOTE: For some reason, Files.lines() leads to the following exception
@@ -193,7 +239,7 @@ public class IndexExporter {
     }
 
 
-    public static void WriteQueries(List<String> queries, Path path) throws IOException {
+    private static void WriteQueries(List<String> queries, Path path) throws IOException {
         File outFile = path.toFile();
         BufferedWriter writer =  null;
         try {
