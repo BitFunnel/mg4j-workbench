@@ -41,16 +41,16 @@ public static void main(String[] args) throws IOException, InterruptedException 
     // The speedup in query speed is within the normal variance between runs whereas the slowdown in ingestion speed is
     // large and noticable.
     Directory dir = new MMapDirectory(Paths.get("/tmp/lucene-measure"));
-    int numThreads = Integer.parseInt(args[2]);
-    ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+    int threadCount = Integer.parseInt(args[2]);
+    ExecutorService executor = Executors.newFixedThreadPool(threadCount);
     ExecutorCompletionService completionService = new ExecutorCompletionService(executor);
 
-    ingestDocuments(manifestFilename, dir, numThreads, completionService);
+    ingestDocuments(manifestFilename, dir, threadCount, completionService);
 
     // Now search the index:
     DirectoryReader ireader = null;
     ireader = DirectoryReader.open(dir);
-    System.out.println("numDocs " + ireader.numDocs());
+    System.out.println(String.format("Document count: %d", ireader.numDocs()));
 
     IndexSearcher isearcher = new IndexSearcher(ireader);
 
@@ -61,27 +61,35 @@ public static void main(String[] args) throws IOException, InterruptedException 
 
     AtomicInteger numCompleted = new AtomicInteger();
     AtomicInteger numHits = new AtomicInteger();
-    System.out.println("Query warmup.");
-    // executeQueries(numThreads, completionService, isearcher, queryLog, numCompleted, numHits, queryTimes);
-    executeQueries(numThreads, completionService, isearcher, queryLog, numCompleted, numHits);
+    System.out.println(String.format("Query warmup: processing %d queries with %d threads.", queryLog.length, threadCount));
+    // executeQueries(threadCount, completionService, isearcher, queryLog, numCompleted, numHits, queryTimes);
+    executeQueries(threadCount, completionService, isearcher, queryLog, numCompleted, numHits);
     numCompleted.set(0);
     numHits.set(0);
-    System.out.println("Querying.");
+    System.out.println(String.format("Query measurement: processing %d queries with %d threads.", queryLog.length, threadCount));
     System.gc();
     long queryStartTime = System.currentTimeMillis();
-    // executeQueries(numThreads, completionService, isearcher, queryLog, numCompleted, numHits, queryTimes);
-    executeQueries(numThreads, completionService, isearcher, queryLog, numCompleted, numHits);
+    // executeQueries(threadCount, completionService, isearcher, queryLog, numCompleted, numHits, queryTimes);
+    executeQueries(threadCount, completionService, isearcher, queryLog, numCompleted, numHits);
     long queryDoneTime = System.currentTimeMillis();
 
     executor.shutdown();
     executor.awaitTermination(300, TimeUnit.SECONDS);
 
     long queryDuration = queryDoneTime - queryStartTime;
-    Double qps = Double.valueOf(queryLog.length / (Double.valueOf(queryDuration)) * 1000.0);
-    System.out.println("queryDuration: " + queryDuration);
-    System.out.println("queryLog.size(): " + queryLog.length);
-    System.out.println("queries run: " + numCompleted.get());
-    System.out.println("qps: " + qps);
+    double elapsedTime = queryDuration / 1000.0;
+    Double qps = queryLog.length / elapsedTime;
+
+    System.out.println();
+    System.out.println("====================================================");
+    System.out.println();
+    System.out.println(String.format("Thread count: %d", threadCount));
+    System.out.println(String.format("Query count: %d", queryLog.length));
+    System.out.println(String.format("Queries run: %d", numCompleted.get()));
+    System.out.println(String.format("Total time: %f", elapsedTime));
+    System.out.println(String.format("QPS: %f", qps));
+
+
     // System.out.println("total matches: " + numHits.get());
 
 //    java.util.Arrays.sort(queryTimes);
@@ -99,9 +107,14 @@ public static void main(String[] args) throws IOException, InterruptedException 
 
 }
 
-    //private static void executeQueries(int numThreads, ExecutorCompletionService completionService, IndexSearcher isearcher, String[] queryLog, AtomicInteger numCompleted, AtomicInteger numHits, long[] queryTimes) throws InterruptedException {
-    private static void executeQueries(int numThreads, ExecutorCompletionService completionService, IndexSearcher isearcher, String[] queryLog, AtomicInteger numCompleted, AtomicInteger numHits) throws InterruptedException {
-        IntStream.range(0, numThreads).forEach(
+    //private static void executeQueries(int threadCount, ExecutorCompletionService completionService, IndexSearcher isearcher, String[] queryLog, AtomicInteger numCompleted, AtomicInteger numHits, long[] queryTimes) throws InterruptedException {
+    private static void executeQueries(int threadCount,
+                                       ExecutorCompletionService completionService,
+                                       IndexSearcher isearcher,
+                                       String[] queryLog,
+                                       AtomicInteger numCompleted,
+                                       AtomicInteger numHits) throws InterruptedException {
+        IntStream.range(0, threadCount).forEach(
                 t -> {
                     Callable task = () -> {
                         // This collector is bogus. We add a colletor that returns Lucene IDs, which can then be looked up
@@ -127,32 +140,38 @@ public static void main(String[] args) throws IOException, InterruptedException 
                 }
         );
 
-        for (int i = 0; i < numThreads; ++i) {
+        for (int i = 0; i < threadCount; ++i) {
             completionService.take();
         }
     }
 
-    private static void ingestDocuments(String manifestFilename, Directory dir, int numThreads, ExecutorCompletionService completionService) throws IOException, InterruptedException {
+    private static void ingestDocuments(String manifestFilename,
+                                        Directory dir,
+                                        int threadCount,
+                                        ExecutorCompletionService completionService) throws IOException, InterruptedException {
         String[] chunkfileNames = getLinesFromFile(manifestFilename);
 
         IndexWriterConfig config = new IndexWriterConfig(new StandardAnalyzer());
         IndexWriter writer =  new IndexWriter(dir, config);
 
-        AtomicInteger fileIdx = new AtomicInteger();
-        System.out.println("Ingesting " + chunkfileNames.length + " chunkfiles.");
+        AtomicInteger fileIndex = new AtomicInteger();
+        System.out.println(String.format("Ingesting %d chunk files with %d threads.",
+                                         chunkfileNames.length,
+                                         threadCount));
         long ingestStartTime = System.currentTimeMillis();
-        IntStream.range(0, numThreads).forEach(
+        IntStream.range(0, threadCount).forEach(
                 t -> {
                     Callable task = () -> {
                         try {
                             DocumentProcessor processor = new DocumentProcessor(writer);
                             while (true) {
-                                int idx = fileIdx.getAndIncrement();
-                                if (idx >= chunkfileNames.length) {
-                                    fileIdx.decrementAndGet();
+                                int index = fileIndex.getAndIncrement();
+                                if (index >= chunkfileNames.length) {
+                                    fileIndex.decrementAndGet();
                                     return null;
                                 }
-                                InputStream inputStream = new FileInputStream(chunkfileNames[idx]);
+                                System.out.println(String.format("  %s", chunkfileNames[index]));
+                                InputStream inputStream = new FileInputStream(chunkfileNames[index]);
                                 CorpusFile corpus = new CorpusFile(inputStream);
                                 corpus.process(processor);
                             }
@@ -165,7 +184,7 @@ public static void main(String[] args) throws IOException, InterruptedException 
                 }
         );
 
-        for (int i = 0; i < numThreads; ++i) {
+        for (int i = 0; i < threadCount; ++i) {
             completionService.take();
         }
 
@@ -173,7 +192,9 @@ public static void main(String[] args) throws IOException, InterruptedException 
         writer.commit();
         long ingestDoneTime = System.currentTimeMillis();
 
-        System.out.println("numIngested: " + fileIdx.get());
+        System.out.println(String.format("Ingested %d chunk files in %f seconds.",
+                fileIndex.get(),
+                (ingestDoneTime - ingestStartTime) / 1000.0));
     }
 
     private static void executeQuery(int index, String[] queries, IndexSearcher isearcher, Collector collector) throws IOException {
