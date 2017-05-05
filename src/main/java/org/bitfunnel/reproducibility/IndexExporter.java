@@ -113,10 +113,7 @@ public class IndexExporter {
     public void convertQueryLog(Path queryLog, Path indexBaseName) throws IOException, QueryParserException, QueryBuilderVisitorException {
         List<String> queries = ReadQueries(queryLog);
 
-        Path indexDirName = indexBaseName.getParent();
-        if (indexDirName == null) {
-            indexDirName = Paths.get("");
-        }
+        Path indexDirName = indexBaseName;
 
         String queryFileBase = queryLog.getFileName().toString();
         if (queryFileBase.endsWith(".txt")) {
@@ -186,7 +183,7 @@ public class IndexExporter {
         System.out.println(String.format("Writing filtered queries to \"%s\"", filteredFile));
         WriteQueries(filteredQueries, Paths.get(filteredFile));
 
-        String filteredIntFile = queryBaseName + "-in-index-ints.txt";
+        String filteredIntFile = queryBaseName + "-has-matches-ints.txt";
         System.out.println(String.format("Writing filtered int queries to \"%s\"", filteredIntFile));
         WriteQueries(filteredIntQueries, Paths.get(filteredIntFile));
 
