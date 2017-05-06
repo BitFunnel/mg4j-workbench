@@ -51,10 +51,6 @@ public class QueryLogRunner
 
     AtomicBoolean queriesFailed = new AtomicBoolean();
 
-    AtomicLong firstStartTimeNs = new AtomicLong(Long.MAX_VALUE);
-    AtomicLong lastFinishTimeNs = new AtomicLong(Long.MIN_VALUE);
-
-
     ArrayList<Thread> threads = new ArrayList<>(16);
 
 
@@ -151,21 +147,15 @@ public class QueryLogRunner
                                              failedQueriesCount));
         }
 
-        // DESIGN NOTE: Measuring elapsed time three different ways to get a better understanding
-        // of how to measure the query processing time.
-        double elapsedTime = (lastFinishTimeNs.get() - firstStartTimeNs.get()) * 1e-9;
-        double elapsedTime2 = (finishSynchronizer.startTimeNs - performanceSynchronizer.startTimeNs) * 1e-9;
-        double elapsedTime3 = (finishTimeNs - startTimeNs) * 1e-9;
+        double elapsedTime = (finishSynchronizer.startTimeNs - performanceSynchronizer.startTimeNs) * 1e-9;
 
         System.out.println();
         System.out.println("====================================================");
         System.out.println();
         System.out.println(String.format("Thread count: %d", threadCount));
         System.out.println(String.format("Query count: %d", queries.size()));
-        System.out.println(String.format("Total time: %f", elapsedTime));
-        System.out.println(String.format("Total time (synchronizer): %f", elapsedTime2));
-        System.out.println(String.format("Total time (simple): %f", elapsedTime3));
-        System.out.println(String.format("QPS: %f", queries.size() / elapsedTime2));
+        System.out.println(String.format("Total time (synchronizer): %f", elapsedTime));
+        System.out.println(String.format("QPS: %f", queries.size() / elapsedTime));
     }
 
 
@@ -231,9 +221,7 @@ public class QueryLogRunner
 
                 // Record performance measurements on final run.
                 performanceSynchronizer.waitForAllThreadsReady();
-                accumulateMin(firstStartTimeNs, System.nanoTime());
                 processLog(performanceQueriesRemaining);
-                accumulateMax(lastFinishTimeNs, System.nanoTime());
 
                 finishSynchronizer.waitForAllThreadsReady();
             } catch (InterruptedException e) {
@@ -274,34 +262,6 @@ public class QueryLogRunner
                 } catch (IOException e) {
                     succeeded[queryIndex] = false;
                     e.printStackTrace();
-                }
-            }
-        }
-
-
-        private void accumulateMax(AtomicLong accumulator, long newValue) {
-            while (true) {
-                long currentValue = accumulator.get();
-                if (currentValue >= newValue) {
-                    break;
-                }
-
-                if (accumulator.compareAndSet(currentValue, newValue)) {
-                    break;
-                }
-            }
-        }
-
-
-        private void accumulateMin(AtomicLong accumulator, long newValue) {
-            while (true) {
-                long currentValue = accumulator.get();
-                if (currentValue <= newValue) {
-                    break;
-                }
-
-                if (accumulator.compareAndSet(currentValue, newValue)) {
-                    break;
                 }
             }
         }
