@@ -18,7 +18,7 @@ public class QueryProcessorFactory {
         luceneIndex = index;
     }
 
-    Runnable CreateQueryProcessor(QueryLogRunner runner) throws IllegalAccessException, URISyntaxException, IOException, InstantiationException, NoSuchMethodException, ConfigurationException, InvocationTargetException, ClassNotFoundException {
+    Runnable createQueryProcessor(QueryLogRunner runner) throws IllegalAccessException, URISyntaxException, IOException, InstantiationException, NoSuchMethodException, ConfigurationException, InvocationTargetException, ClassNotFoundException {
         if (mg4jIndex != null) {
             return new Mg4jQueryProcessor(mg4jIndex, runner);
         }
@@ -27,6 +27,18 @@ public class QueryProcessorFactory {
         }
         else {
             return null;
+        }
+    }
+
+    String indexType() {
+        if (mg4jIndex != null) {
+            return "MG4j";
+        }
+        else if (luceneIndex != null) {
+            return "Lucene";
+        }
+        else {
+            return "Invalid";
         }
     }
 }

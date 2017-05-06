@@ -12,7 +12,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 
@@ -70,7 +69,7 @@ public class QueryLogRunner
         for (int i = 0; i < threadCount; ++i) {
             System.out.println(String.format("  thread-%d", i));
             Thread thread = new Thread(
-                    factory.CreateQueryProcessor(this),
+                    factory.createQueryProcessor(this),
                     String.format("thread-%d", i));
             threads.add(thread);
             thread.start();
@@ -126,6 +125,7 @@ public class QueryLogRunner
         {
             System.out.println("WARNING: unique queries differs from queries processed.");
         }
+        System.out.println(String.format("Index type: %s", factory.indexType()));
         System.out.println(String.format("Thread count: %d", threadCount));
         System.out.println(String.format("Unique queries: %d", queries.size()));
         System.out.println(String.format("Queries processed: %d", processedCount));
