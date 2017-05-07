@@ -8,7 +8,9 @@ public abstract class QueryProcessorBase implements Runnable
 {
     List<String> queries;
     int[] matchCounts;
-    long[] timesInNS;
+    long[] parsingTimesInNS;
+    long[] planningTimesInNS;
+    long[] matchTimesInNS;
     boolean[] succeeded;
 
     ThreadSynchronizer warmupSynchronizer;
@@ -22,7 +24,10 @@ public abstract class QueryProcessorBase implements Runnable
     {
         this.queries = runner.queries;
         this.matchCounts = runner.matchCounts;
-        this.timesInNS = runner.timesInNS;
+
+        this.parsingTimesInNS = runner.parsingTimesInNS;
+        this.planningTimesInNS = runner.planningTimesInNS;
+        this.matchTimesInNS = runner.matchTimesInNS;
         this.succeeded = runner.succeeded;
         this.warmupSynchronizer = runner.warmupSynchronizer;
         this.warmupQueriesRemaining = runner.warmupQueriesRemaining;

@@ -50,14 +50,20 @@ public class LuceneQueryProcessor extends QueryProcessorBase
             }
             BooleanQuery tempQuery = queryBuilder.build();
             ConstantScoreQuery query = new ConstantScoreQuery(tempQuery);
+
+            long matchingStart = System.nanoTime();
+
             searcher.search(query, collector);
+
+            long finishTime = System.nanoTime();
 
             // DESIGN NOTE: These writes are safe in a multi-threaded environment as long
             // as two threads never have the same queryIndex. One can guarantee this by
             // restricting queriesRemaining to values that don't exceed queries.size().
             // If queriesRemaining is larger, the modulus operation used to compute QueryIndex
             // could lead to two threads getting assigned the same queryIndex.
-            timesInNS[queryIndex] = System.nanoTime() - start;
+            planningTimesInNS[queryIndex] = matchingStart - start;
+            matchTimesInNS[queryIndex] = finishTime - matchingStart;
             matchCounts[queryIndex] = collector.getDocIds().size();
             succeeded[queryIndex] = true;
         }

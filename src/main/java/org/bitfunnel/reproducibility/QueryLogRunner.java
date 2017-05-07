@@ -19,7 +19,9 @@ public class QueryLogRunner
 {
     final List<String> queries;
     int[] matchCounts;
-    long[] timesInNS;
+    long[] parsingTimesInNS;
+    long[] planningTimesInNS;
+    long[] matchTimesInNS;
     boolean[] succeeded;
 
     QueryProcessorFactory factory;
@@ -40,7 +42,9 @@ public class QueryLogRunner
         this.factory = factory;
         queries = Utilities.LoadQueries(Paths.get(queryLogFile));
         matchCounts = new int[queries.size()];
-        timesInNS = new long[queries.size()];
+        planningTimesInNS = new long[queries.size()];
+        parsingTimesInNS = new long[queries.size()];
+        matchTimesInNS = new long[queries.size()];
         succeeded = new boolean[queries.size()];
     }
 
@@ -49,7 +53,9 @@ public class QueryLogRunner
         // Clear out any values from an earlier run.
         for (int i = 0; i < queries.size(); ++i) {
             matchCounts[i] = 0;
-            timesInNS[i] = 0;
+            parsingTimesInNS[i] = 0;
+            planningTimesInNS[i] = 0;
+            matchTimesInNS[i] = 0;
             succeeded[i] = false;
         }
 
@@ -84,21 +90,31 @@ public class QueryLogRunner
 
         int failedQueriesCount = 0;
         int processedCount = 0;
-        double totalLatency = 0;
+
+        double parsingLatency = 0;
+        double planningLatency = 0;
+        double matchingLatency = 0;
+
         File outFile = outfilePath.toFile();
         BufferedWriter writer =  null;
         try {
             writer = new BufferedWriter(new FileWriterWithEncoding(outFile, StandardCharsets.UTF_8));
 
+            writer.write("query,matches,parse,plan,match\n");
             for (int i = 0; i < queries.size(); ++i) {
                 if (succeeded[i]) {
                     ++processedCount;
-                    totalLatency += (timesInNS[i] * 1e-9);
+                    parsingLatency += (parsingTimesInNS[i] * 1e-9);
+                    planningLatency += (planningTimesInNS[i] * 1e-9);
+                    matchingLatency += (matchTimesInNS[i] * 1e-9);
+
                     writer.write(
-                            String.format("%s,%d,%f\n",
+                            String.format("%s,%d,%f,%f,%f\n",
                                     queries.get(i),
                                     matchCounts[i],
-                                    timesInNS[i] * 1e-9));
+                                    parsingTimesInNS[i] * 1e-9,
+                                    planningTimesInNS[i] * 1e-9,
+                                    matchTimesInNS[i] * 1e-9));
                 } else {
                     ++failedQueriesCount;
                     writer.write(
@@ -116,6 +132,8 @@ public class QueryLogRunner
             System.out.println(String.format("WARNING: %d queries failed to execute.",
                                              failedQueriesCount));
         }
+        double overheadLatency = planningLatency + parsingLatency;
+        double totalLatency = overheadLatency + matchingLatency;
 
         double elapsedTime = (finishSynchronizer.startTimeNs - performanceSynchronizer.startTimeNs) * 1e-9;
         System.out.println();
@@ -130,11 +148,11 @@ public class QueryLogRunner
         System.out.println(String.format("Unique queries: %d", queries.size()));
         System.out.println(String.format("Queries processed: %d", processedCount));
         System.out.println(String.format("Elapsed time: %f", elapsedTime));
-//        System.out.println(String.format("Total parsing latency: %f", parsingLatency));
-//        System.out.println(String.format("Total planning latency: %f", plannignLatency));
-//        System.out.println(String.format("Total matching latency: %f", matchingLatency));
+        System.out.println(String.format("Total parsing latency: %f", parsingLatency));
+        System.out.println(String.format("Total planning latency: %f", planningLatency));
+        System.out.println(String.format("Total matching latency: %f", matchingLatency));
         System.out.println(String.format("Mean query latency: %f", totalLatency / processedCount));
-//        System.out.println(String.format("Planning overhead (\%): %f", overheadLatency / totalLatency));
+        System.out.println(String.format("Planning overhead: %f", overheadLatency / totalLatency));
         System.out.println(String.format("QPS: %f", processedCount / elapsedTime));
     }
 

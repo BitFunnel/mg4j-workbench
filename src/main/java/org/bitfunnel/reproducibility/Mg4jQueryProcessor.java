@@ -50,7 +50,7 @@ class Mg4jQueryProcessor extends QueryProcessorBase
             // restricting queriesRemaining to values that don't exceed queries.size().
             // If queriesRemaining is larger, the modulus operation used to compute QueryIndex
             // could lead to two threads getting assigned the same queryIndex.
-            timesInNS[queryIndex] = System.nanoTime() - start;
+            matchTimesInNS[queryIndex] = System.nanoTime() - start;
             matchCounts[queryIndex] = results.size();
             succeeded[queryIndex] = true;
         } catch (QueryParserException e) {

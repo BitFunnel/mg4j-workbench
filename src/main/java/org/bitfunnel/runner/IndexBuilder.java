@@ -47,6 +47,9 @@ public class IndexBuilder {
         ExecutorCompletionService completionService = new ExecutorCompletionService(executor);
 
         ingestDocuments(manifestFilename, dir, threadCount, completionService);
+        System.out.println("Before ExecutorService shutdownNow().");
+        executor.shutdownNow();
+        System.out.println("ExecutorService shutdownNow() returned.");
     }
 
 
