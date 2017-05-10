@@ -42,6 +42,8 @@ public class ChunkWordReader implements WordReader {
                 return false;
             }
             else {
+                // TODO: Fix this converstion to UTF-16. Issue #33.
+
                 // We just hit the first letter of a word.
                 // Convert to utf-16 and append to word.
                 word.append((char)c);

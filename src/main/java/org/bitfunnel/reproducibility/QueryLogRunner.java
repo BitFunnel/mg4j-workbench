@@ -90,6 +90,7 @@ public class QueryLogRunner
 
         int failedQueriesCount = 0;
         int processedCount = 0;
+        long matchCount = 0;
 
         double parsingLatency = 0;
         double planningLatency = 0;
@@ -104,6 +105,7 @@ public class QueryLogRunner
             for (int i = 0; i < queries.size(); ++i) {
                 if (succeeded[i]) {
                     ++processedCount;
+                    matchCount += matchCounts[i];
                     parsingLatency += (parsingTimesInNS[i] * 1e-9);
                     planningLatency += (planningTimesInNS[i] * 1e-9);
                     matchingLatency += (matchTimesInNS[i] * 1e-9);
@@ -147,6 +149,7 @@ public class QueryLogRunner
         System.out.println(String.format("Thread count: %d", threadCount));
         System.out.println(String.format("Unique queries: %d", queries.size()));
         System.out.println(String.format("Queries processed: %d", processedCount));
+        System.out.println(String.format("MatchCount: %d", matchCount));
         System.out.println(String.format("Elapsed time: %f", elapsedTime));
         System.out.println(String.format("Total parsing latency: %f", parsingLatency));
         System.out.println(String.format("Total planning latency: %f", planningLatency));
@@ -154,6 +157,7 @@ public class QueryLogRunner
         System.out.println(String.format("Mean query latency: %f", totalLatency / processedCount));
         System.out.println(String.format("Planning overhead: %f", overheadLatency / totalLatency));
         System.out.println(String.format("QPS: %f", processedCount / elapsedTime));
+        System.out.println(String.format("MPS: %f", matchCount / elapsedTime));
     }
 
 
