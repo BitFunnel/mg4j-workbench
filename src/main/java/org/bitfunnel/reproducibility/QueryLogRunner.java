@@ -158,6 +158,7 @@ public class QueryLogRunner
         System.out.println(String.format("Planning overhead: %f", overheadLatency / totalLatency));
         System.out.println(String.format("QPS: %f", processedCount / elapsedTime));
         System.out.println(String.format("MPS: %f", matchCount / elapsedTime));
+        System.out.println(String.format("MPQ: %f", (double)matchCount / processedCount));
     }
 
 
