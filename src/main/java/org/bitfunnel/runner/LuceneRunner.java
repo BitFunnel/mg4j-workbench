@@ -1,15 +1,12 @@
 package org.bitfunnel.runner;
 
-import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.index.*;
 import org.apache.lucene.search.*;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.MMapDirectory;
-import org.apache.lucene.store.RAMDirectory;
 
 import java.io.*;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -146,7 +143,7 @@ class LuceneRunner {
     private static void executeQuery(int index, String[] queries, IndexSearcher isearcher, Collector collector) throws IOException {
         String[] terms= queries[index].split(" ");
         // Note: we also tried using Lucene's "Classic" query parser. It gets the same results but it's slightly slower,
-        // presumebly due to the extra overhead of having to actually parse the string.
+        // presumably due to the extra overhead of having to actually parse the string.
         BooleanQuery.Builder queryBuilder = new BooleanQuery.Builder();
         for (String termText : terms) {
             // field seems to be "00" for title, "01" for body.

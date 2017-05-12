@@ -1,5 +1,6 @@
 package org.bitfunnel.runner;
 
+import org.apache.lucene.analysis.CharArraySet;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
@@ -59,7 +60,8 @@ public class IndexBuilder {
                                         ExecutorCompletionService completionService) throws IOException, InterruptedException {
         String[] chunkfileNames = getLinesFromFile(manifestFilename);
 
-        IndexWriterConfig config = new IndexWriterConfig(new StandardAnalyzer());
+        StandardAnalyzer analyzer = new StandardAnalyzer(CharArraySet.EMPTY_SET);
+        IndexWriterConfig config = new IndexWriterConfig(analyzer);
         IndexWriter writer =  new IndexWriter(dir, config);
 
         AtomicInteger fileIndex = new AtomicInteger();
