@@ -21,6 +21,14 @@ public class LuceneQueryProcessor extends QueryProcessorBase
         this.index = index;
 
         reader = DirectoryReader.open(index.dir);
+
+        System.out.println(String.format("Document count: %d", reader.numDocs()));
+
+        // https://lucene.apache.org/core/4_2_1/core/org/apache/lucene/index/package-summary.html#stats
+        // http://stackoverflow.com/questions/31327126/accessing-terms-statistics-in-lucene-4
+        System.out.println(String.format("getSumDocFreq(): %d", reader.getSumDocFreq("00")));
+        System.out.println(String.format("getSumTotalTermFreq(): %d", reader.getSumTotalTermFreq("00")));
+
         searcher = new IndexSearcher(reader);
     }
 
