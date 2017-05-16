@@ -18,7 +18,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Iterator;
 
 import static it.unimi.di.big.mg4j.search.DocumentIterator.END_OF_LIST;
@@ -242,10 +241,20 @@ public class ExperimentalQueryEngine implements FlyweightPrototype<ExperimentalQ
         return builder.toString();
     }
 
+
+    public static class TimingData {
+        void Reset() {
+            matchingTime = 0;
+        }
+
+        public long matchingTime = 0;
+    }
+
+
     /** Parses one or more comma-separated queries and deposits in a given array a segment of the
      * results corresponding to the queries, using the current settings of this query engine.
      *
-     * <p>Results are accumulated with an &ldquo;and-then&rdquo; semantics: results
+     * <p>TimingData are accumulated with an &ldquo;and-then&rdquo; semantics: results
      * are added from each query in order, provided they did not appear before.
      *
      * @param queries one or more queries separated by commas.
@@ -255,8 +264,20 @@ public class ExperimentalQueryEngine implements FlyweightPrototype<ExperimentalQ
      * @return the number of relevant documents scanned while filling <code>results</code>.
      */
 
-    public int process( final String queries, int offset, final int length, final ObjectArrayList<DocumentScoreInfo<Reference2ObjectMap<Index,SelectedInterval[]>>> results ) throws QueryParserException, QueryBuilderVisitorException, IOException {
+    public int process( final String queries,
+                        int offset, final int length,
+                        final ObjectArrayList<DocumentScoreInfo<Reference2ObjectMap<Index,SelectedInterval[]>>> results) throws QueryParserException, QueryBuilderVisitorException, IOException {
         //LOGGER.debug( "Processing query \"" + queries + "\", offset=" + offset + ", length="+ length );
+        return processWithTiming(queries, offset, length, results, null);
+    }
+
+
+    public int processWithTiming(
+        final String queries,
+        int offset, final int length,
+        final ObjectArrayList<DocumentScoreInfo<Reference2ObjectMap<Index,SelectedInterval[]>>> results,
+        TimingData timing) throws QueryParserException, QueryBuilderVisitorException, IOException
+    {
         final String[] part = queries.split( "," );
         final Query[] partQuery = new Query[ part.length ];
         for( int i = 0; i < part.length; i++ ) {
@@ -265,13 +286,15 @@ public class ExperimentalQueryEngine implements FlyweightPrototype<ExperimentalQ
             if ( transformer != null ) partQuery[ i ] = transformer.transform( partQuery[ i ] );
         }
 
-        return process( partQuery, offset, length, results );
+        int total = processWithTiming( partQuery, offset, length, results, timing );
+
+        return total;
     }
 
     /** Processes one pre-parsed query and deposits in a given array a segment of the
      * results corresponding to the query, using the current settings of this query engine.
      *
-     * <p>Results are accumulated with an &ldquo;and-then&rdquo; semantics: results
+     * <p>TimingData are accumulated with an &ldquo;and-then&rdquo; semantics: results
      * are added from each query in order, provided they did not appear before.
      *
      * @param query a query;
@@ -287,7 +310,7 @@ public class ExperimentalQueryEngine implements FlyweightPrototype<ExperimentalQ
     /** Processes one or more pre-parsed queries and deposits in a given array a segment of the
      * results corresponding to the queries, using the current settings of this query engine.
      *
-     * <p>Results are accumulated with an &ldquo;and-then&rdquo; semantics: results
+     * <p>TimingData are accumulated with an &ldquo;and-then&rdquo; semantics: results
      * are added from each query in order, provided they did not appear before.
      *
      * @param query an array of queries.
@@ -298,6 +321,18 @@ public class ExperimentalQueryEngine implements FlyweightPrototype<ExperimentalQ
      */
     @SuppressWarnings("unchecked")
     public int process( final Query query[], final int offset, final int length, final ObjectArrayList<DocumentScoreInfo<Reference2ObjectMap<Index,SelectedInterval[]>>> results ) throws QueryBuilderVisitorException, IOException {
+        return processWithTiming(query, offset, length, results, null);
+    }
+
+
+    @SuppressWarnings("unchecked")
+    public int processWithTiming(
+            final Query query[],
+            final int offset,
+            final int length,
+            final ObjectArrayList<DocumentScoreInfo<Reference2ObjectMap<Index,SelectedInterval[]>>> results,
+            TimingData timing) throws QueryBuilderVisitorException, IOException
+    {
         //LOGGER.debug( "Processing Query array \"" + Arrays.toString( query ) + "\", offset=" + offset + ", length="+ length );
         results.clear();
         double lastMinScore = 1;
@@ -309,9 +344,14 @@ public class ExperimentalQueryEngine implements FlyweightPrototype<ExperimentalQ
 
             DocumentIterator documentIterator = query[ i ].accept( builderVisitor.prepare() );
 
+            long start = System.nanoTime();
             count = scorer != null?
                     getScoredResults( documentIterator, currOffset, currLength, lastMinScore, results, alreadySeen ) :
                     getResults( documentIterator, currOffset, currLength, results, alreadySeen );
+
+            if (timing != null) {
+                timing.matchingTime += (System.nanoTime() - start);
+            }
 
             documentIterator.dispose();
             if ( results.size() > 0 ) lastMinScore = results.get( results.size() - 1 ).score;
@@ -336,9 +376,13 @@ public class ExperimentalQueryEngine implements FlyweightPrototype<ExperimentalQ
 
                 documentIterator = query[ i ].accept( builderVisitor.prepare() );
 
+                start = System.nanoTime();
                 for( DocumentScoreInfo<Reference2ObjectMap<Index,SelectedInterval[]>> dsi: sorted ) {
                     documentIterator.skipTo( dsi.document );
                     dsi.info = intervalSelector.select( documentIterator, new Reference2ObjectArrayMap<Index,SelectedInterval[]>( numIndices ) );
+                }
+                if (timing != null) {
+                    timing.matchingTime += (System.nanoTime() - start);
                 }
 
                 documentIterator.dispose();
@@ -349,6 +393,7 @@ public class ExperimentalQueryEngine implements FlyweightPrototype<ExperimentalQ
         }
         return total;
     }
+
 
     private int getScoredResults( final DocumentIterator documentIterator, final int offset, final int length, final double lastMinScore, final ObjectArrayList<DocumentScoreInfo<Reference2ObjectMap<Index,SelectedInterval[]>>> results, final LongSet alreadySeen ) throws IOException {
         final ScoredDocumentBoundedSizeQueue<Reference2ObjectMap<Index,SelectedInterval[]>> top = new ScoredDocumentBoundedSizeQueue<Reference2ObjectMap<Index,SelectedInterval[]>>( offset + length );

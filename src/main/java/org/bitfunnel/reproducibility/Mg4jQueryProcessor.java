@@ -17,6 +17,7 @@ class Mg4jQueryProcessor extends QueryProcessorBase
 {
     private final ExperimentalQueryEngine engine;
     ObjectArrayList<DocumentScoreInfo<Reference2ObjectMap<Index, SelectedInterval[]>>> results;
+    ExperimentalQueryEngine.TimingData timing = new ExperimentalQueryEngine.TimingData();
 
     Mg4jQueryProcessor(Mg4jIndex index, QueryLogRunner runner)
     {
@@ -43,14 +44,17 @@ class Mg4jQueryProcessor extends QueryProcessorBase
             //
 
             results.clear();
-            engine.process(query, 0, 1000000000, results);
+            timing.Reset();
+            engine.processWithTiming(query, 0, 1000000000, results, timing);
 
             // DESIGN NOTE: These writes are safe in a multi-threaded environment as long
             // as two threads never have the same queryIndex. One can guarantee this by
             // restricting queriesRemaining to values that don't exceed queries.size().
             // If queriesRemaining is larger, the modulus operation used to compute QueryIndex
             // could lead to two threads getting assigned the same queryIndex.
-            matchTimesInNS[queryIndex] = System.nanoTime() - start;
+            long totalTime = System.nanoTime() - start;
+            matchTimesInNS[queryIndex] = timing.matchingTime;
+            parsingTimesInNS[queryIndex] = totalTime - timing.matchingTime;
             matchCounts[queryIndex] = results.size();
             succeeded[queryIndex] = true;
         } catch (QueryParserException e) {
