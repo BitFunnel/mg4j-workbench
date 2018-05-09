@@ -40,8 +40,10 @@ public class IndexExporter {
     // TODO: Add javadoc
     public IndexExporter(String basename) throws IllegalAccessException, InvocationTargetException, NoSuchMethodException, IOException, InstantiationException, URISyntaxException, ConfigurationException, ClassNotFoundException {
         // Load and configure the index.
-        text = Index.getInstance( basename + "-text?inmemory=1", true, true );
-        title = Index.getInstance( basename + "-title?inmemory=1", true, true );
+        text = Index.getInstance( basename + "-text", true, true );
+        title = Index.getInstance( basename + "-title", true, true );
+//      text = Index.getInstance( basename + "-text?inmemory=1", true, true );
+//      title = Index.getInstance( basename + "-title?inmemory=1", true, true );
 
         indexMap = new Object2ReferenceOpenHashMap<String,Index>(
             new String[] { "text", "title" }, new Index[] { text, title } );
