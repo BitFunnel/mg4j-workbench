@@ -132,12 +132,6 @@ public class ChunkDocument implements Document {
                 throw new IOException("ChunkDocument.tryParseStream(): expected zero after stream id.");
             }
 
-            // Verify that we haven't seen this stream id before.
-            // TODO: Consider changing chunk format to disallow multiple instances of a stream.
-            if (streams[id] != null) {
-                throw new IOException("ChunkDocument.tryParseStream(): encountered duplicate stream id.");
-            }
-
             // Append the contents of this stream to the end of the buffer.
             // Scan past bytes that match "(Term End)*" End where Term is a sequence of non-zero utf-8 bytes
             // and End is the byte '\0'.
