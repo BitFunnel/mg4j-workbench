@@ -6,6 +6,9 @@ import it.unimi.dsi.lang.MutableString;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.Vector;
 
 
 public class ChunkDocument implements Document {
@@ -25,21 +28,86 @@ public class ChunkDocument implements Document {
     private int writeCursor = 0;
 
     /**
-     * Class Stream represents a document stream (or field in mg4j parlance) with backing utf-8 data
+     * StreamSegment represents a contiguous collection of terms for a
+     * document stream (or field in mg4j parlance) with backing utf-8 data
      * in buffer[offset..offset + length - 1].
+     * A single stream may be encoded as multiple segments.
      */
-    private class Stream {
-        public Stream(int offset, int length) {
+    private class StreamSegment {
+        public StreamSegment(int offset, int length) {
             this.offset = offset;
             this.length = length;
+            this.noEofFlag = 0;
         }
 
-        Reader reader() {
-            return new InputStreamReader(new ByteArrayInputStream(buffer, offset, length), StandardCharsets.UTF_8);
+        // This ensures istream() will not include final EOF as
+        // part of InputStream
+        void setNoEof() {
+            this.noEofFlag = 1;
+        }
+
+        ByteArrayInputStream istream() {
+            return new ByteArrayInputStream(buffer, offset, length - noEofFlag);
         }
 
         int offset;
         int length;
+        int noEofFlag;
+    }
+    // A Stream is a collection of one or more StreamSegments
+    private class Stream {
+        public Stream(StreamSegment seg) {
+            this.count = 1;
+            segment = seg;
+        }
+
+        public int size() {
+            return count;
+        }
+
+        public void add(StreamSegment seg) {
+            if (count == 1) {
+                segments = new ArrayList();
+                segments.add(segment);
+            }
+
+            // Set prior segment to not include final EOF byte
+            // This ensures when we put all segments together into a
+            // sequence, it acts like one stream.
+            segments.get(count - 1).setNoEof();
+
+            segments.add(seg);
+            ++count;
+        }
+
+        // Return an InputStream that effectively concatenates
+        // together all segments in the stream
+        public Reader reader() {
+            InputStream istream;
+            if (count == 1) {
+                istream = segment.istream();
+            } else if (count == 2) {
+                InputStream seg1 = segments.get(0).istream();
+                InputStream seg2 = segments.get(1).istream();
+                istream = new SequenceInputStream(seg1, seg2);
+            }
+            else {
+                // Build a SequenceInputStream using an enumerator,
+                // which Vector delivers using elements()
+                Vector<InputStream> istreams = new Vector();
+                Iterator<StreamSegment> it = segments.iterator();
+                while (it.hasNext()) {
+                    istreams.add(it.next().istream());
+                }
+                istream = new SequenceInputStream(istreams.elements());
+            }
+
+            return new InputStreamReader(istream, StandardCharsets.UTF_8);
+        }
+
+        int count;
+        StreamSegment segment;
+        ArrayList<StreamSegment> segments;
     }
 
     // BitFunnel chunk specifies a 8-bit stream identifiers, so max stream id is 255.
@@ -150,9 +218,15 @@ public class ChunkDocument implements Document {
                 if (prev == 0 && c == 0) {
                     // We're at the end of the stream.
                     int length = writeCursor - offset;
+                    StreamSegment segment = new StreamSegment(offset, length);
 
-                    // Make an entry in the streams table: id --> (offset, length)
-                    streams[id] = new Stream(offset, length);
+                    // Add an stream entry in the streams table: id --> (offset, length)
+                    if (streams[id] == null) {
+                        streams[id] = new Stream(segment);
+                    }
+                    else {
+                        streams[id].add(segment);
+                    }
 
                     return true;
                 }
@@ -243,8 +317,9 @@ public class ChunkDocument implements Document {
     public Object content(int i) throws IOException {
         Stream stream = streams[i];
         if (stream == null) {
-            throw new IOException(String.format("ChunkDocument.content(%d): stream does not exist.", i));
+            throw new IOException(String.format("ChunkDocument.content: %d stream does not exist.", i));
         }
+
         return stream.reader();
     }
 
