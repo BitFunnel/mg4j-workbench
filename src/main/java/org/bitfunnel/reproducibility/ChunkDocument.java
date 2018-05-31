@@ -31,29 +31,33 @@ public class ChunkDocument implements Document {
      * StreamSegment represents a contiguous collection of terms for a
      * document stream (or field in mg4j parlance) with backing utf-8 data
      * in buffer[offset..offset + length - 1].
-     * A single stream may be encoded as multiple segments.
+     * A single stream may be modeled as the concatendation of multiple segments.
      */
     private class StreamSegment {
         public StreamSegment(int offset, int length) {
             this.offset = offset;
             this.length = length;
-            this.noEofFlag = 0;
         }
 
-        // This ensures istream() will not include final EOF as
-        // part of InputStream
-        void setNoEof() {
-            this.noEofFlag = 1;
-        }
-
-        ByteArrayInputStream istream() {
-            return new ByteArrayInputStream(buffer, offset, length - noEofFlag);
+        /**
+         * Returns a ByteArrayInputStream corresponding to this segment's
+         * underlying buffer data. When the trim parameter is false, the
+         * stream corresponds to buffer index values in the range
+         *   [offset, offset + length - 1]
+         * When the trim parameter is true, the stream corresponds to buffer
+         * index values in the range
+         *   [offset, offset + length - 1)
+         * The trim functionality is provided to exclude EOF bytes during
+         * stream concatenation.
+         */
+        ByteArrayInputStream istream(boolean trim) {
+            return new ByteArrayInputStream(buffer, offset, length - (trim ? 1 : 0));
         }
 
         int offset;
         int length;
-        int noEofFlag;
     }
+
     // A Stream is a collection of one or more StreamSegments
     private class Stream {
         public Stream(StreamSegment seg) {
@@ -71,11 +75,6 @@ public class ChunkDocument implements Document {
                 segments.add(segment);
             }
 
-            // Set prior segment to not include final EOF byte
-            // This ensures when we put all segments together into a
-            // sequence, it acts like one stream.
-            segments.get(count - 1).setNoEof();
-
             segments.add(seg);
             ++count;
         }
@@ -85,19 +84,21 @@ public class ChunkDocument implements Document {
         public Reader reader() {
             InputStream istream;
             if (count == 1) {
-                istream = segment.istream();
+                istream = segment.istream(false);
             } else if (count == 2) {
-                InputStream seg1 = segments.get(0).istream();
-                InputStream seg2 = segments.get(1).istream();
+                InputStream seg1 = segments.get(0).istream(true);
+                InputStream seg2 = segments.get(1).istream(false);
                 istream = new SequenceInputStream(seg1, seg2);
             }
             else {
                 // Build a SequenceInputStream using an enumerator,
                 // which Vector delivers using elements()
                 Vector<InputStream> istreams = new Vector();
+
                 Iterator<StreamSegment> it = segments.iterator();
                 while (it.hasNext()) {
-                    istreams.add(it.next().istream());
+                    StreamSegment s = it.next();
+                    istreams.add(s.istream(it.hasNext()));
                 }
                 istream = new SequenceInputStream(istreams.elements());
             }
