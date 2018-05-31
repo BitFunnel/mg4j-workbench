@@ -31,7 +31,7 @@ public class ChunkDocument implements Document {
      * StreamSegment represents a contiguous collection of terms for a
      * document stream (or field in mg4j parlance) with backing utf-8 data
      * in buffer[offset..offset + length - 1].
-     * A single stream may be modeled as the concatendation of multiple segments.
+     * A single stream may be modeled as the concatenation of multiple segments.
      */
     private class StreamSegment {
         public StreamSegment(int offset, int length) {
@@ -46,7 +46,7 @@ public class ChunkDocument implements Document {
          *   [offset, offset + length - 1]
          * When the trim parameter is true, the stream corresponds to buffer
          * index values in the range
-         *   [offset, offset + length - 1)
+         *   [offset, offset + length - 2)
          * The trim functionality is provided to exclude EOF bytes during
          * stream concatenation.
          */
